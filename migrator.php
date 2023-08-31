@@ -1659,9 +1659,9 @@ class Migrator_CLI extends WP_CLI_Command {
 	}
 }
 
-/* add_action( */
-/* 	'cli_init', */
-/* 	function () { */
-/* 		WP_CLI::add_command( 'migrator', 'Migrator_CLI' ); */
-/* 	} */
-/* ); */
+add_action(
+	'cli_init',
+	function () {
+		WP_CLI::add_command( 'migrator', 'Migrator_CLI' );
+	}
+);
