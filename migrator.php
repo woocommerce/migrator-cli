@@ -162,9 +162,6 @@ class Migrator_CLI extends WP_CLI_Command {
    *
 	 * ## OPTIONS
 	 *
-	 * [--dry-run]
-	 * : Run the command without actually doing anything
-	 *
 	 * [--before]
 	 * : Query Order before this date. ISO 8601 format.
 	 *
@@ -229,7 +226,6 @@ class Migrator_CLI extends WP_CLI_Command {
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . sprintf( 'Excluding these fields: %s', implode( ', ', $exclude_fields ) ) );
 		}
 
-		$dry_run      = isset( $assoc_args['dry-run'] ) ? true : false;
 		$before       = isset( $assoc_args['before'] ) ? $assoc_args['before'] : null;
 		$after        = isset( $assoc_args['after'] ) ? $assoc_args['after'] : null;
 		$limit        = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
