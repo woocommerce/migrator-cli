@@ -158,10 +158,8 @@ class Migrator_CLI extends WP_CLI_Command {
 	}
 
 	/**
-	 * 1. Fetch orders from Shopify then loop through them.
-	 * 2. Check if the corresponding Woo order has tags.
-	 * 3. Set the tags for Woo order if need.
-	 *
+	 * Migrate products from Shopify to WooCommerce.
+   *
 	 * ## OPTIONS
 	 *
 	 * [--dry-run]
