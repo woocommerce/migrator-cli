@@ -22,7 +22,7 @@
     Query Order after this date. ISO 8601 format.
 
   [--limit]
-    Limit the total number of orders to process.
+    Limit the total number of orders to process. Set to 1000 by default.
 
   [--perpage]
     Limit the number of orders to process each time.
@@ -73,7 +73,7 @@
     Query Order after this date. ISO 8601 format.
 
   [--limit]
-    Limit the total number of orders to process.
+    Limit the total number of orders to process. Set to 1000 by default.
 
   [--perpage]
     Limit the number of orders to process each time.
