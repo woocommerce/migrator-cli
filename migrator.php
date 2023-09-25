@@ -1578,7 +1578,7 @@ class Migrator_CLI extends WP_CLI_Command {
 			$refund->update_meta_data( '_refund_completed_date', $shopify_refund->processed_at );
 
 			// Update refund transaction ID
-			if ( property_exists( $shopify_refund->transactions[0]->receipt, 'refund_transaction_id' ) ) {
+			if ( count ( $shopify_refund->transactions ) > 0 && property_exists( $shopify_refund->transactions[0], 'receipt') && property_exists( $shopify_refund->transactions[0]->receipt, 'refund_transaction_id' ) ) {
 				$refund->update_meta_data( '_transaction_id', $shopify_refund->transactions[0]->receipt->refund_transaction_id );
 			}
 
