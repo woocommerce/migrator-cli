@@ -1074,76 +1074,70 @@ class Migrator_CLI extends WP_CLI_Command {
 		$no_update = isset( $assoc_args['no-update'] ) ? true : false;
 		$sorting   = isset( $assoc_args['sorting'] ) ? $assoc_args['sorting'] : 'id asc';
 
-		if ( $next_link ) {
-			$response = $this->rest_request( $next_link );
-		} else {
-			$response = $this->rest_request(
-				'orders.json',
-				array(
-					'limit'          => $perpage,
-					'created_at_max' => $before,
-					'created_at_min' => $after,
-					'status'         => $status,
-					'ids'            => $ids,
-					'order'          => $sorting,
-				)
-			);
-		}
-
-		$response_data = json_decode( wp_remote_retrieve_body( $response ) );
-
-		if ( empty( $response_data->orders ) ) {
-			WP_CLI::error( 'No Shopify orders found.' );
-		}
-
-		WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->orders ), min( $limit, $perpage, count( $response_data->orders ) ) ) );
-
-		for ( $i = 0; $i < min( $limit, $perpage, count( $response_data->orders ) ); $i++ ) {
-			$shopify_order = $response_data->orders[ $i ];
-
-			if ( in_array( $shopify_order->id, $exclude ) ) {
-				WP_CLI::line( sprintf( 'Order %s is excluded. Skipping...', $shopify_order->order_number ) );
-				continue;
+		do {
+			if ( $next_link ) {
+				$response = $this->rest_request( $next_link );
+			} else {
+				$response = $this->rest_request(
+					'orders.json',
+					array(
+						'limit'          => $perpage,
+						'created_at_max' => $before,
+						'created_at_min' => $after,
+						'status'         => $status,
+						'ids'            => $ids,
+						'order'          => $sorting,
+					)
+				);
 			}
 
-			// Check if the order exists in WooCommerce.
-			$woo_order = $this->get_corresponding_woo_order( $shopify_order );
+			$response_data = json_decode( wp_remote_retrieve_body( $response ) );
 
-			if ( $woo_order ) {
-				WP_CLI::line( sprintf( 'Order %s already exists (%s). %s...', $shopify_order->order_number, $woo_order->get_id(), $no_update ? 'Skipping' : 'Updating' ) );
+			if ( empty( $response_data->orders ) ) {
+				WP_CLI::error( 'No Shopify orders found.' );
+			}
 
-				if ( $no_update ) {
+			WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->orders ), min( $limit, $perpage, count( $response_data->orders ) ) ) );
+
+			for ( $i = 0; $i < min( $limit, $perpage, count( $response_data->orders ) ); $i++ ) {
+				$shopify_order = $response_data->orders[ $i ];
+
+				if ( in_array( $shopify_order->id, $exclude ) ) {
+					WP_CLI::line( sprintf( 'Order %s is excluded. Skipping...', $shopify_order->order_number ) );
 					continue;
 				}
-			} else {
-				WP_CLI::line( sprintf( 'Order %s does not exist. Creating...', $shopify_order->order_number ) );
+
+				// Check if the order exists in WooCommerce.
+				$woo_order = $this->get_corresponding_woo_order( $shopify_order );
+
+				if ( $woo_order ) {
+					WP_CLI::line( sprintf( 'Order %s already exists (%s). %s...', $shopify_order->order_number, $woo_order->get_id(), $no_update ? 'Skipping' : 'Updating' ) );
+
+					if ( $no_update ) {
+						continue;
+					}
+				} else {
+					WP_CLI::line( sprintf( 'Order %s does not exist. Creating...', $shopify_order->order_number ) );
+				}
+
+				$this->create_or_update_woo_order( $shopify_order, $woo_order );
 			}
 
-			$this->create_or_update_woo_order( $shopify_order, $woo_order );
-		}
+			WP_CLI::line( '===============================' );
 
-		WP_CLI::line( '===============================' );
-
-		$next_link = $this->get_rest_next_link( $response );
-		if ( $next_link && $limit > $perpage ) {
-			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
-			$this->orders(
-				array(),
-				array_merge(
-					$assoc_args,
-					array(
-						'next'  => $next_link,
-						'limit' => $limit - $perpage,
-					)
-				)
-			);
-		} else {
-			WP_CLI::success( 'All orders have been processed.' );
-
-			if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
-				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Enabling WooCommerce Sequential Order Numbers plugin.' );
-				WP_CLI::runcommand( 'plugin activate woocommerce-sequential-order-numbers' );
+			$next_link = $this->get_rest_next_link( $response );
+			if ( $next_link && $limit > $perpage ) {
+				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
+				WP_CLI::line( 'Next: ' . $next_link );
+				$limit -= $perpage;
 			}
+		} while ( $next_link );
+
+		WP_CLI::success( 'All orders have been processed.' );
+
+		if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
+			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Enabling WooCommerce Sequential Order Numbers plugin.' );
+			WP_CLI::runcommand( 'plugin activate woocommerce-sequential-order-numbers' );
 		}
 	}
 
