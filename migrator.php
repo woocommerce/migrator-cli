@@ -1684,6 +1684,73 @@ class Migrator_CLI extends WP_CLI_Command {
 
 		return $woo_status;
 	}
+
+
+	public function subscriptions() {
+		$order        = new WC_Order( 33598 );
+		$now          = gmdate( 'Y-m-d H:i:s' );
+		$subscription = wcs_create_subscription(
+			array(
+				'status'             => '',
+				'order_id'           => $order->get_id(),
+				'customer_id'        => 1,
+				'date_created'       => $now,
+				'billing_interval'	 => 4,
+				'billing_period'	 => 'week'
+			)
+		);
+
+		$subscription->set_requires_manual_renewal( true );
+
+		// Line Items.
+		foreach ( $order->get_items( array( 'line_item', 'tax', 'shipping', 'coupon' ) ) as $item ) {
+			$this->clone_item_to_subscription( $item, $subscription );
+		}
+
+		$subscription->set_shipping_total( $order->get_shipping_total() );
+
+		// Update order billing address.
+		$subscription->set_billing_first_name( $order->get_billing_first_name() );
+		$subscription->set_billing_last_name( $order->get_billing_last_name() );
+		$subscription->set_billing_company( $order->get_billing_company() );
+		$subscription->set_billing_address_1( $order->get_billing_address_1() );
+		$subscription->set_billing_address_2( $order->get_billing_address_2() );
+		$subscription->set_billing_city( $order->get_billing_city() );
+		$subscription->set_billing_state( $order->get_billing_state() );
+		$subscription->set_billing_postcode( $order->get_billing_postcode() );
+		$subscription->set_billing_country( $order->get_billing_country() );
+		$subscription->set_billing_phone( $order->get_billing_phone() );
+
+		// Update order shipping address.
+		$subscription->set_shipping_first_name( $order->get_shipping_first_name() );
+		$subscription->set_shipping_last_name( $order->get_shipping_last_name() );
+		$subscription->set_shipping_company( $order->get_shipping_company() );
+		$subscription->set_shipping_address_1( $order->get_shipping_address_1() );
+		$subscription->set_shipping_address_2( $order->get_shipping_address_2() );
+		$subscription->set_shipping_city( $order->get_shipping_city() );
+		$subscription->set_shipping_state( $order->get_shipping_state() );
+		$subscription->set_shipping_postcode( $order->get_shipping_postcode() );
+		$subscription->set_shipping_country( $order->get_shipping_country() );
+		$subscription->set_shipping_phone( $order->get_shipping_phone() );
+
+
+
+		// nextBillingDate?
+
+
+		$subscription->save();
+		$subscription->calculate_totals();
+	}
+
+	// Clones the line item and adds it to the subscription.
+	private function clone_item_to_subscription( $item, $subscription ) {
+		$new_item = clone $item;
+		$new_item->set_id( 0 );
+		$new_item->set_order_id( $subscription->get_id() );
+		$new_item->save();
+
+		$subscription->add_item( $new_item );
+	}
 }
 
 add_action(
