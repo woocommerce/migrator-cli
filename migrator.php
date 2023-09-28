@@ -1687,13 +1687,15 @@ class Migrator_CLI extends WP_CLI_Command {
 
 
 	public function subscriptions() {
-		$order        = new WC_Order( 33598 );
+		$customer_id  = 1;
+		$order_id     = 33598;
+		$order        = new WC_Order( $order_id );
 		$now          = gmdate( 'Y-m-d H:i:s' );
 		$subscription = wcs_create_subscription(
 			array(
 				'status'             => '',
 				'order_id'           => $order->get_id(),
-				'customer_id'        => 1,
+				'customer_id'        => $customer_id,
 				'date_created'       => $now,
 				'billing_interval'	 => 4,
 				'billing_period'	 => 'week'
@@ -1733,10 +1735,14 @@ class Migrator_CLI extends WP_CLI_Command {
 		$subscription->set_shipping_country( $order->get_shipping_country() );
 		$subscription->set_shipping_phone( $order->get_shipping_phone() );
 
+		$subscription->set_payment_method( $order->get_payment_method() );
+		$subscription->set_payment_method_title( $order->get_payment_method_title() );
+		$subscription->set_status( 'active' );
 
+		$subscription->add_meta_data('_payment_method_id', $order->get_meta( '_payment_method_id' ) );
+		$subscription->add_meta_data('_payment_tokens', $order->get_meta( '_payment_tokens' ) );
 
 		// nextBillingDate?
-
 
 		$subscription->save();
 		$subscription->calculate_totals();
