@@ -159,7 +159,7 @@ class Migrator_CLI extends WP_CLI_Command {
 
 	/**
 	 * Migrate products from Shopify to WooCommerce.
-   *
+	*
 	 * ## OPTIONS
 	 *
 	 * [--before]
@@ -858,7 +858,7 @@ class Migrator_CLI extends WP_CLI_Command {
 			}
 
 			$attributes = array_map(
-				function( $taxonomy, $value ) {
+				function ( $taxonomy, $value ) {
 					$attribute = new WC_Product_Attribute();
 					$attribute->set_name( $taxonomy );
 					$attribute->set_id( wc_attribute_taxonomy_id_by_name( $taxonomy ) );
@@ -1611,7 +1611,7 @@ class Migrator_CLI extends WP_CLI_Command {
 			$refund->update_meta_data( '_refund_completed_date', $shopify_refund->processed_at );
 
 			// Update refund transaction ID
-			if ( count ( $shopify_refund->transactions ) > 0 && property_exists( $shopify_refund->transactions[0], 'receipt') && property_exists( $shopify_refund->transactions[0]->receipt, 'refund_transaction_id' ) ) {
+			if ( count( $shopify_refund->transactions ) > 0 && property_exists( $shopify_refund->transactions[0], 'receipt' ) && property_exists( $shopify_refund->transactions[0]->receipt, 'refund_transaction_id' ) ) {
 				$refund->update_meta_data( '_transaction_id', $shopify_refund->transactions[0]->receipt->refund_transaction_id );
 			}
 
@@ -1686,66 +1686,164 @@ class Migrator_CLI extends WP_CLI_Command {
 	}
 
 
-	public function subscriptions() {
-		$customer_id  = 1;
-		$order_id     = 33598;
-		$order        = new WC_Order( $order_id );
-		$now          = gmdate( 'Y-m-d H:i:s' );
-		$subscription = wcs_create_subscription(
-			array(
-				'status'             => '',
-				'order_id'           => $order->get_id(),
-				'customer_id'        => $customer_id,
-				'date_created'       => $now,
-				'billing_interval'	 => 4,
-				'billing_period'	 => 'week'
-			)
-		);
+	public function subscriptions( $args, $assoc_args ) {
+		$this->health_check();
+		$this->assoc_args = $assoc_args;
 
-		$subscription->set_requires_manual_renewal( true );
+		$offset = isset( $assoc_args['offset'] ) ? $assoc_args['offset'] : null;
+		$limit  = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
 
-		// Line Items.
-		foreach ( $order->get_items( array( 'line_item', 'tax', 'shipping', 'coupon' ) ) as $item ) {
-			$this->clone_item_to_subscription( $item, $subscription );
+		if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
+			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'We need to disable WooCommerce Sequential Order Numbers plugin while migration to ensure the order number is set correctly. The plugin will be enabled again after migration finished.' );
+			WP_CLI::runcommand( 'plugin deactivate woocommerce-sequential-order-numbers' );
 		}
 
-		$subscription->set_shipping_total( $order->get_shipping_total() );
+		$endpoint = 'https://graphql.skio.com/v1/graphql';
+		$qry      = "{\"query\":\"query {Subscriptions(limit: $limit, order_by: { createdAt: asc }, where: { status: { _eq: ACTIVE } }) { billingPolicyId cancelledAt createdAt currencyCode customAttributes cyclesCompleted deliveryPolicyId deliveryPrice deliveryPriceOverride id lastBillingAttemptAt metadata migrationIndex nextBillingDate originOrderId platformId prepaidDeliveryPolicyId prepaidProductPricesPerDelivery shippingAddressId siteId status statusContext storefrontUserId updatedAt BillingPolicy {  createdAt  id  interval  intervalCount  maxCycles  minCycles  updatedAt } originOrder {  cancelledAt  clientIp  createdAt  deletedAt  deliveredAt  id  note  platformId  platformNumber  processedAt  storefrontUserId  updatedAt } SubscriptionLines {  createdAt  customAttributes  groupId  id  ordersRemaining  platformId  prepaidSubscriptionId  priceWithoutDiscount  productVariantId  quantity  removedAt  sellingPlanId  subscriptionId  taxable  titleOverride  updatedAt } StorefrontUser {  createdAt  email  firstName  id  lastName  phoneNumber  platformId  redactedAt  shopifyTags  siteId  updatedAt } Site {  ianaTimezone  id } ShippingAddress {  address1  address2  city  company  country  createdAt  doorCode  firstName  id  lastName  phoneNumber  platformId  province  storefrontUserId  updatedAt  zip } PrepaidSubscriptionLines {  createdAt  customAttributes  groupId  id  ordersRemaining  platformId  prepaidSubscriptionId  priceWithoutDiscount  productVariantId  quantity  removedAt  sellingPlanId  subscriptionId  taxable  titleOverride  updatedAt } PrepaidGiftRecipient {  createdAt  email  firstName  id  lastName  phoneNumber  platformId  redactedAt  shopifyTags  siteId  updatedAt } PrepaidDeliveryPolicy {  createdAt  id  interval  intervalCount  maxCycles  minCycles  updatedAt } PaymentMethod {  billingAddressId  brand  createdAt  expiryMonth  expiryYear  id  lastDigits  platformId  revokedAt  storefrontUserId  updatedAt } NotificationLogs {  body  createdAt  email  id  notificationId  phoneNumber  subject  subscriptionId  updatedAt } FulfillmentOrders {  cancelledAt  clientIp  createdAt  deletedAt  deliveredAt  id  note  platformId  platformNumber  processedAt  storefrontUserId  updatedAt } Discounts {  cancelFlowSessionId  createdAt  fixedValue  groupId  groupPlanId  id  maxTimesUsed  orderLineItemId  percentage  platformId  redeemCode  shippingLineId  subscriptionId  subscriptionLineId  timesUsed  type  updatedAt } DeliveryPolicy {  createdAt  id  interval  intervalCount  maxCycles  minCycles  updatedAt } CancelFlowV2Sessions {  action  actions  cancelFlowId  conditions  created_at  id  isMultipleActions  isOtherReason  reason  rebuttal  rebuttalOptions  shownActions  shownReasons  shownRebuttals  status  subscriptionId  updated_at } CancelFlowSessions {  cancelFlowId  createdAt  id  status  subscriptionId  updatedAt } AuditLogs {  createdAt  eventData  eventType  id  storefrontUserId  subscriptionId  updatedAt } }}\"}";
 
-		// Update order billing address.
-		$subscription->set_billing_first_name( $order->get_billing_first_name() );
-		$subscription->set_billing_last_name( $order->get_billing_last_name() );
-		$subscription->set_billing_company( $order->get_billing_company() );
-		$subscription->set_billing_address_1( $order->get_billing_address_1() );
-		$subscription->set_billing_address_2( $order->get_billing_address_2() );
-		$subscription->set_billing_city( $order->get_billing_city() );
-		$subscription->set_billing_state( $order->get_billing_state() );
-		$subscription->set_billing_postcode( $order->get_billing_postcode() );
-		$subscription->set_billing_country( $order->get_billing_country() );
-		$subscription->set_billing_phone( $order->get_billing_phone() );
+		$headers   = array();
+		$headers[] = 'Content-Type: application/json';
+		$headers[] = 'Authorization: API ' . SKIO_TOKEN;
 
-		// Update order shipping address.
-		$subscription->set_shipping_first_name( $order->get_shipping_first_name() );
-		$subscription->set_shipping_last_name( $order->get_shipping_last_name() );
-		$subscription->set_shipping_company( $order->get_shipping_company() );
-		$subscription->set_shipping_address_1( $order->get_shipping_address_1() );
-		$subscription->set_shipping_address_2( $order->get_shipping_address_2() );
-		$subscription->set_shipping_city( $order->get_shipping_city() );
-		$subscription->set_shipping_state( $order->get_shipping_state() );
-		$subscription->set_shipping_postcode( $order->get_shipping_postcode() );
-		$subscription->set_shipping_country( $order->get_shipping_country() );
-		$subscription->set_shipping_phone( $order->get_shipping_phone() );
+		$ch = curl_init();
 
-		$subscription->set_payment_method( $order->get_payment_method() );
-		$subscription->set_payment_method_title( $order->get_payment_method_title() );
-		$subscription->set_status( 'active' );
+		curl_setopt( $ch, CURLOPT_URL, $endpoint );
+		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
+		curl_setopt( $ch, CURLOPT_POSTFIELDS, $qry );
+		curl_setopt( $ch, CURLOPT_POST, 1 );
+		curl_setopt( $ch, CURLOPT_HTTPHEADER, $headers );
 
-		$subscription->add_meta_data('_payment_method_id', $order->get_meta( '_payment_method_id' ) );
-		$subscription->add_meta_data('_payment_tokens', $order->get_meta( '_payment_tokens' ) );
+		$result = curl_exec( $ch );
 
-		// nextBillingDate?
+		if ( curl_errno( $ch ) ) {
+			WP_CLI::line( 'Could not retrieve Skio Subscriptions curl error:' . curl_error( $ch ) );
+			return;
+		}
 
-		$subscription->save();
-		$subscription->calculate_totals();
+		$subscriptions = json_decode( $result, true );
+
+		foreach ( $subscriptions['data']['Subscriptions'] as $skio_subscription ) {
+
+			if ( empty( $skio_subscription['originOrder'] ) || ! $skio_subscription['originOrder']['platformNumber'] ) {
+				WP_CLI::line( 'Subscription without origin order. Subscription id: '. $skio_subscription['id'] );
+				continue;
+			}
+
+			$args = array(
+				'meta_key'     => '_order_number',
+				'meta_value'   => $skio_subscription['originOrder']['platformNumber'],
+				'meta_compare' => '=',
+				'numberposts'  => 1,
+			);
+
+			$orders = wc_get_orders( $args );
+
+			if ( ! $orders ) {
+				WP_CLI::line( 'Woo Order not found for Shopify Order: ' . $skio_subscription['originOrder']['platformNumber'] );
+				continue;
+			}
+
+			$order        = reset( $orders );
+			$create_date  = date_create( $skio_subscription['BillingPolicy']['createdAt'] );
+			$create_date  = date_format( $create_date, 'Y-m-d H:i:s' );
+			$subscription = wcs_create_subscription(
+				array(
+					'status'           => '',
+					'order_id'         => $order->get_id(),
+					'customer_id'      => $order->get_customer_id(),
+					'date_created'     => $create_date,
+					'billing_interval' => $skio_subscription['BillingPolicy']['intervalCount'],
+					'billing_period'   => mb_strtolower( $skio_subscription['BillingPolicy']['interval'] ),
+				)
+			);
+
+			if ( is_wp_error( $subscription ) ) {
+				WP_CLI::line( 'Error when creating the subscription: ' . $subscription->get_error_message() );
+				continue;
+			}
+
+			$subscription->set_requires_manual_renewal( true );
+
+			// Line Items.
+			foreach ( $order->get_items( array( 'line_item', 'tax', 'shipping', 'coupon' ) ) as $item ) {
+				$this->clone_item_to_subscription( $item, $subscription );
+			}
+
+			$subscription->set_shipping_total( $order->get_shipping_total() );
+
+			// Update order billing address.
+			$subscription->set_billing_first_name( $order->get_billing_first_name() );
+			$subscription->set_billing_last_name( $order->get_billing_last_name() );
+			$subscription->set_billing_company( $order->get_billing_company() );
+			$subscription->set_billing_address_1( $order->get_billing_address_1() );
+			$subscription->set_billing_address_2( $order->get_billing_address_2() );
+			$subscription->set_billing_city( $order->get_billing_city() );
+			$subscription->set_billing_state( $order->get_billing_state() );
+			$subscription->set_billing_postcode( $order->get_billing_postcode() );
+			$subscription->set_billing_country( $order->get_billing_country() );
+			$subscription->set_billing_phone( $order->get_billing_phone() );
+
+			// Update order shipping address.
+			$subscription->set_shipping_first_name( $order->get_shipping_first_name() );
+			$subscription->set_shipping_last_name( $order->get_shipping_last_name() );
+			$subscription->set_shipping_company( $order->get_shipping_company() );
+			$subscription->set_shipping_address_1( $order->get_shipping_address_1() );
+			$subscription->set_shipping_address_2( $order->get_shipping_address_2() );
+			$subscription->set_shipping_city( $order->get_shipping_city() );
+			$subscription->set_shipping_state( $order->get_shipping_state() );
+			$subscription->set_shipping_postcode( $order->get_shipping_postcode() );
+			$subscription->set_shipping_country( $order->get_shipping_country() );
+			$subscription->set_shipping_phone( $order->get_shipping_phone() );
+
+			$subscription->set_payment_method( $order->get_payment_method() );
+			$subscription->set_payment_method_title( $order->get_payment_method_title() );
+
+			if ( ! in_array( $skio_subscription['status'], array( 'ACTIVE', 'CANCELLED' ), true ) ) {
+				WP_CLI::line( 'Unknown subscription status: ' . $skio_subscription['status'] );
+			}
+
+			$subscription->set_status( $skio_subscription['status'] );
+
+			$subscription->add_meta_data( '_payment_method_id', $order->get_meta( '_payment_method_id' ) );
+			$subscription->add_meta_data( '_payment_tokens', $order->get_meta( '_payment_tokens' ) );
+
+			foreach ( $skio_subscription['NotificationLogs'] as $skio_note ) {
+
+				if ( ! $skio_note['body'] ) {
+					continue;
+				}
+
+				$to = $skio_note['email'];
+
+				if ( $to ) {
+					$to = $skio_note['phoneNumber'];
+				}
+
+				$note = esc_html(
+					sprintf(
+						// translators: %1$s Email or phone number, %2$s Message, %3$s Date.
+						__( 'Notification sent to: %1$s. Message: "%2$s". Date: %3$s' ),
+						array(
+							$to,
+							$skio_note['body'],
+							$skio_note['createdAt'],
+						)
+					)
+				);
+
+				$subscription->add_order_note( $note );
+			}
+
+			// nextBillingDate?
+
+			$subscription->save();
+			$subscription->calculate_totals();
+		}
+
+		if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
+			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Enabling WooCommerce Sequential Order Numbers plugin.' );
+			WP_CLI::runcommand( 'plugin activate woocommerce-sequential-order-numbers' );
+		}
 	}
 
 	// Clones the line item and adds it to the subscription.
