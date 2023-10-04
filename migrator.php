@@ -1051,7 +1051,12 @@ class Migrator_CLI extends WP_CLI_Command {
 	 *
 	 * [--remove-orphans]
 	 * : Remove orphans order items
-	 *
+	 * 
+	 * [--mode=<live|test>]
+	 * : Switching to the 'live' mode will directly copy the email and phone number without any suffix, ensuring they remain intact. In 'test' mode, as a 
+	 * precaution to prevent accidental notifications to customers, both the email and phone number will be masked with a suffix. The default setting is 
+	 * 'test'
+	 * 
 	 * @when after_wp_load
 	 */
 	public function orders( $args, $assoc_args ) {
@@ -1073,6 +1078,7 @@ class Migrator_CLI extends WP_CLI_Command {
 		$exclude   = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
 		$no_update = isset( $assoc_args['no-update'] ) ? true : false;
 		$sorting   = isset( $assoc_args['sorting'] ) ? $assoc_args['sorting'] : 'id asc';
+		$mode      = isset( $assoc_args['mode'] ) ? $assoc_args['mode'] : 'test';
 
 		do {
 			if ( $next_link ) {
@@ -1120,7 +1126,7 @@ class Migrator_CLI extends WP_CLI_Command {
 					WP_CLI::line( sprintf( 'Order %s does not exist. Creating...', $shopify_order->order_number ) );
 				}
 
-				$this->create_or_update_woo_order( $shopify_order, $woo_order );
+				$this->create_or_update_woo_order( $shopify_order, $woo_order, $mode );
 			}
 
 			WP_CLI::line( '===============================' );
@@ -1187,7 +1193,7 @@ class Migrator_CLI extends WP_CLI_Command {
 		$order->save();
 	}
 
-	private function create_or_update_woo_order( $shopify_order, $woo_order ) {
+	private function create_or_update_woo_order( $shopify_order, $woo_order, $mode = 'test' ) {
 		$order = new WC_Order( $woo_order );
 		$order->save();
 
@@ -1219,7 +1225,7 @@ class Migrator_CLI extends WP_CLI_Command {
 		$this->process_order_addresses( $order, $shopify_order );
 
 		if ( $shopify_order->email ) {
-			$this->create_or_assign_customer( $order, $shopify_order );
+			$this->create_or_assign_customer( $order, $shopify_order, $mode );
 		} else {
 			$this->set_placeholder_billing_email( $order );
 		}
@@ -1240,7 +1246,13 @@ class Migrator_CLI extends WP_CLI_Command {
 		$this->process_order_refunds( $order, $shopify_order );
 	}
 
-	private function create_or_assign_customer( $order, $shopify_order ) {
+	private function create_or_assign_customer( $order, $shopify_order, $mode = 'test' ) {
+		// Mask customer email and phone number in test mode.
+		if ( $mode === 'test' ) {
+			$shopify_order->email = $shopify_order->email . '.masked';
+			$shopify_order->phone = $shopify_order->phone . '.test';
+		}
+
 		// Check if the customer exists in WooCommerce.
 		$customer = get_user_by( 'email', $shopify_order->email );
 
