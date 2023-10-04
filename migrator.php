@@ -1247,10 +1247,10 @@ class Migrator_CLI extends WP_CLI_Command {
 	}
 
 	private function create_or_assign_customer( $order, $shopify_order, $mode = 'test' ) {
-		// Mask customer email and phone number in test mode.
+		// Mask customer email and remove phone number in test mode.
 		if ( $mode === 'test' ) {
 			$shopify_order->email = $shopify_order->email . '.masked';
-			$shopify_order->phone = $shopify_order->phone . '.test';
+			$shopify_order->phone = '';
 		}
 
 		// Check if the customer exists in WooCommerce.

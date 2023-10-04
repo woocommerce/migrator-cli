@@ -7,6 +7,7 @@
 3. Grab the Shopify Access token by [creating a custom app](https://help.shopify.com/en/manual/apps/app-types/custom-apps). Make sure the required scopes for products and orders migration are selected.
 4. Update domain and access token in the config.php file.
 5. Activate the plugin.
+6. Important note for Order migration - To prevent accidental sending of notifications, there is a `--mode` flag that is set to test by default. This masks the email and phone. Please add `--mode=live` flag whenever you wish to do a final migration with unmasked email and phone. 
 
 ## Commands
 
@@ -62,7 +63,7 @@
 ```
 
 ```
-  wp migrator orders [--before] [--after] [--limit] [--perpage] [--next] [--status] [--ids] [--exclude] [--no-update] [--sorting] [--remove-orphans]
+  wp migrator orders [--before] [--after] [--limit] [--perpage] [--next] [--status] [--ids] [--exclude] [--no-update] [--sorting] [--remove-orphans] [--mode=<live|test>]
 
   OPTIONS
 
@@ -98,4 +99,7 @@
 
   [--remove-orphans]
     Remove orphans order items
+
+  [--mode=<live|test>]
+    Defaults to 'test' where email address is suffixed with '.masked' and phone number is blanked. Please set this flag as 'live' when you wish to do the final migration with unmasked email and phone.
 ```
