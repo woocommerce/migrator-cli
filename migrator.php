@@ -1051,12 +1051,12 @@ class Migrator_CLI extends WP_CLI_Command {
 	 *
 	 * [--remove-orphans]
 	 * : Remove orphans order items
-	 * 
+	 *
 	 * [--mode=<live|test>]
-	 * : Switching to the 'live' mode will directly copy the email and phone number without any suffix, ensuring they remain intact. In 'test' mode, as a 
-	 * precaution to prevent accidental notifications to customers, both the email and phone number will be masked with a suffix. The default setting is 
+	 * : Switching to the 'live' mode will directly copy the email and phone number without any suffix, ensuring they remain intact. In 'test' mode, as a
+	 * precaution to prevent accidental notifications to customers, both the email and phone number will be masked with a suffix. The default setting is
 	 * 'test'
-	 * 
+	 *
 	 * @when after_wp_load
 	 */
 	public function orders( $args, $assoc_args ) {
@@ -1111,6 +1111,12 @@ class Migrator_CLI extends WP_CLI_Command {
 				if ( in_array( $shopify_order->id, $exclude ) ) {
 					WP_CLI::line( sprintf( 'Order %s is excluded. Skipping...', $shopify_order->order_number ) );
 					continue;
+				}
+
+				// Mask phone number in test mode.
+				if ( $mode === 'test' ) {
+					if ( isset( $shopify_order->shipping_address->phone ) ) $shopify_order->shipping_address->phone = '9999999999';
+					if ( isset( $shopify_order->billing_address->phone) ) $shopify_order->billing_address->phone = '9999999999';
 				}
 
 				// Check if the order exists in WooCommerce.
@@ -1225,6 +1231,10 @@ class Migrator_CLI extends WP_CLI_Command {
 		$this->process_order_addresses( $order, $shopify_order );
 
 		if ( $shopify_order->email ) {
+			// Mask email in test mode.
+			if ( $mode === 'test' ) {
+				$shopify_order->email .= '.masked';
+			}
 			$this->create_or_assign_customer( $order, $shopify_order, $mode );
 		} else {
 			$this->set_placeholder_billing_email( $order );
@@ -1246,12 +1256,28 @@ class Migrator_CLI extends WP_CLI_Command {
 		$this->process_order_refunds( $order, $shopify_order );
 	}
 
-	private function create_or_assign_customer( $order, $shopify_order, $mode = 'test' ) {
-		// Mask customer email and remove phone number in test mode.
-		if ( $mode === 'test' ) {
-			$shopify_order->email = $shopify_order->email . '.masked';
-			$shopify_order->phone = '';
+	/**
+	 * Scramble email address
+	 * Used for test mode order import
+	 *
+	 * @param string $email
+	 * @return string
+	 */
+	private function scrambleEmail( $email ) {
+		$parts = explode( '@', $email );
+		$scrambledEmailId = str_shuffle( $parts[0] );
+
+		// Scramble the domain part
+		$domainParts = explode( '.', $parts[1] );
+		foreach ( $domainParts as &$domainPart ) {
+			$domainPart = str_shuffle( $domainPart );
 		}
+		$scrambledEmailDomain = implode( '.', $domainParts );
+
+		return $scrambledEmailId . '@' . $scrambledEmailDomain;
+	}
+
+	private function create_or_assign_customer( $order, $shopify_order, $mode = 'test' ) {
 
 		// Check if the customer exists in WooCommerce.
 		$customer = get_user_by( 'email', $shopify_order->email );
