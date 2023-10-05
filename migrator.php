@@ -1114,7 +1114,7 @@ class Migrator_CLI extends WP_CLI_Command {
 				}
 
 				// Mask phone number in test mode.
-				if ( $mode === 'test' ) {
+				if ( 'test' === $mode ) {
 					if ( isset( $shopify_order->shipping_address->phone ) ) $shopify_order->shipping_address->phone = '9999999999';
 					if ( isset( $shopify_order->billing_address->phone) ) $shopify_order->billing_address->phone = '9999999999';
 				}
@@ -1232,7 +1232,7 @@ class Migrator_CLI extends WP_CLI_Command {
 
 		if ( $shopify_order->email ) {
 			// Mask email in test mode.
-			if ( $mode === 'test' ) {
+			if ( 'test' === $mode ) {
 				$shopify_order->email .= '.masked';
 			}
 			$this->create_or_assign_customer( $order, $shopify_order, $mode );
@@ -1254,27 +1254,6 @@ class Migrator_CLI extends WP_CLI_Command {
 
 		// Refunds
 		$this->process_order_refunds( $order, $shopify_order );
-	}
-
-	/**
-	 * Scramble email address
-	 * Used for test mode order import
-	 *
-	 * @param string $email
-	 * @return string
-	 */
-	private function scrambleEmail( $email ) {
-		$parts = explode( '@', $email );
-		$scrambledEmailId = str_shuffle( $parts[0] );
-
-		// Scramble the domain part
-		$domainParts = explode( '.', $parts[1] );
-		foreach ( $domainParts as &$domainPart ) {
-			$domainPart = str_shuffle( $domainPart );
-		}
-		$scrambledEmailDomain = implode( '.', $domainParts );
-
-		return $scrambledEmailId . '@' . $scrambledEmailDomain;
 	}
 
 	private function create_or_assign_customer( $order, $shopify_order, $mode = 'test' ) {
