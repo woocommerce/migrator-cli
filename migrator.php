@@ -11,6 +11,29 @@ if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
 	return;
 }
 
+// Activation hook to disable wp_email(), to prevent notifications.
+function migrator_activate() {
+	add_filter( 'pre_wp_mail', '__return_false' );
+
+}
+register_activation_hook( __FILE__, 'migrator_activate' );
+
+function migrator_active_notice() {
+	?>
+	<div class="notice notice-warning is-dismissible">
+		<p><?php _e( 'Migrator plugin is active. Outgoing email notifications are disabled. Please deactivate plugin after migration', 'sample-text-domain' ); ?></p>
+	</div>
+	<?php
+}
+add_action( 'admin_notices', 'migrator_active_notice' );
+
+// Deactivation hook to enable wp_email().
+function migrator_deactivate() {
+	remove_filter( 'pre_wp_mail', '__return_false' );
+	remove_action( 'admin_notices', 'migrator_active_notice' );
+}
+register_deactivation_hook( __FILE__, 'migrator_deactivate' );
+
 // Only include the config.php file if exists
 if ( file_exists( __DIR__ . '/config.php' ) ) {
 	require_once __DIR__ . '/config.php';
