@@ -1137,8 +1137,13 @@ class Migrator_CLI extends WP_CLI_Command {
 
 				// Mask phone number in test mode.
 				if ( 'test' === $mode ) {
-					if ( isset( $shopify_order->shipping_address->phone ) ) $shopify_order->shipping_address->phone = '9999999999';
-					if ( isset( $shopify_order->billing_address->phone) ) $shopify_order->billing_address->phone = '9999999999';
+					if ( isset( $shopify_order->shipping_address->phone ) ) {
+						$shopify_order->shipping_address->phone = '9999999999';
+					}
+
+					if ( isset( $shopify_order->billing_address->phone) ) {
+						$shopify_order->billing_address->phone = '9999999999';
+					}
 				}
 
 				// Check if the order exists in WooCommerce.
