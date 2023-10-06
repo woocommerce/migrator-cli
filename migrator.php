@@ -11,28 +11,6 @@ if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
 	return;
 }
 
-// Activation hook to disable wp_email(), to prevent notifications.
-register_activation_hook( __FILE__, 'migrator_activate' );
-function migrator_activate() {
-	add_filter( 'pre_wp_mail', '__return_false' );
-}
-
-function migrator_active_notice() {
-	?>
-	<div class="notice notice-warning is-dismissible">
-		<p><?php _e( 'Migrator plugin is active. Outgoing email notifications are disabled. Please deactivate plugin after migration', 'migrator' ); ?></p>
-	</div>
-	<?php
-}
-add_action( 'admin_notices', 'migrator_active_notice' );
-
-// Deactivation hook to enable wp_email().
-register_deactivation_hook( __FILE__, 'migrator_deactivate' );
-function migrator_deactivate() {
-	remove_filter( 'pre_wp_mail', '__return_false' );
-	remove_action( 'admin_notices', 'migrator_active_notice' );
-}
-
 // Only include the config.php file if exists
 if ( file_exists( __DIR__ . '/config.php' ) ) {
 	require_once __DIR__ . '/config.php';
@@ -1121,6 +1099,9 @@ class Migrator_CLI extends WP_CLI_Command {
 
 			$response_data = json_decode( wp_remote_retrieve_body( $response ) );
 
+			// Disable WP emails before migration starts.
+			add_filter( 'pre_wp_mail', '__return_false', PHP_INT_MAX );
+
 			if ( empty( $response_data->orders ) ) {
 				WP_CLI::error( 'No Shopify orders found.' );
 			}
@@ -1173,6 +1154,9 @@ class Migrator_CLI extends WP_CLI_Command {
 		} while ( $next_link );
 
 		WP_CLI::success( 'All orders have been processed.' );
+
+		// Enable WP emails after order migration completes.
+		remove_filter( 'pre_wp_mail', '__return_false', PHP_INT_MAX );
 
 		if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Enabling WooCommerce Sequential Order Numbers plugin.' );
