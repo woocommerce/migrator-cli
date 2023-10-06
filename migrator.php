@@ -17,7 +17,6 @@ function migrator_activate() {
 	add_filter( 'pre_wp_mail', '__return_false' );
 }
 
-add_action( 'admin_notices', 'migrator_active_notice' );
 function migrator_active_notice() {
 	?>
 	<div class="notice notice-warning is-dismissible">
@@ -25,6 +24,7 @@ function migrator_active_notice() {
 	</div>
 	<?php
 }
+add_action( 'admin_notices', 'migrator_active_notice' );
 
 // Deactivation hook to enable wp_email().
 register_deactivation_hook( __FILE__, 'migrator_deactivate' );
