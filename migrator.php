@@ -1057,6 +1057,10 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * precaution to prevent accidental notifications to customers, both the email and phone number will be masked with a suffix. The default setting is
 	 * 'test'
 	 *
+	 * [--send-notifications]
+	 * : If this flag is added, the migrator will send out 'New Account created' email notifications to users, for every new user imported; and 'New
+	 * order' notification for each order to the site admin email. Beware of potential spamming before adding this flag!
+	 *
 	 * @when after_wp_load
 	 */
 	public function orders( $args, $assoc_args ) {
@@ -1068,17 +1072,18 @@ class Migrator_CLI extends WP_CLI_Command {
 			WP_CLI::runcommand( 'plugin deactivate woocommerce-sequential-order-numbers' );
 		}
 
-		$before    = isset( $assoc_args['before'] ) ? $assoc_args['before'] : null;
-		$after     = isset( $assoc_args['after'] ) ? $assoc_args['after'] : null;
-		$limit     = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
-		$perpage   = isset( $assoc_args['perpage'] ) ? $assoc_args['perpage'] : 50;
-		$next_link = isset( $assoc_args['next'] ) ? $assoc_args['next'] : '';
-		$status    = isset( $assoc_args['status'] ) ? $assoc_args['status'] : 'any';
-		$ids       = isset( $assoc_args['ids'] ) ? $assoc_args['ids'] : null;
-		$exclude   = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
-		$no_update = isset( $assoc_args['no-update'] ) ? true : false;
-		$sorting   = isset( $assoc_args['sorting'] ) ? $assoc_args['sorting'] : 'id asc';
-		$mode      = isset( $assoc_args['mode'] ) ? $assoc_args['mode'] : 'test';
+		$before             = isset( $assoc_args['before'] ) ? $assoc_args['before'] : null;
+		$after              = isset( $assoc_args['after'] ) ? $assoc_args['after'] : null;
+		$limit              = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
+		$perpage            = isset( $assoc_args['perpage'] ) ? $assoc_args['perpage'] : 50;
+		$next_link          = isset( $assoc_args['next'] ) ? $assoc_args['next'] : '';
+		$status             = isset( $assoc_args['status'] ) ? $assoc_args['status'] : 'any';
+		$ids                = isset( $assoc_args['ids'] ) ? $assoc_args['ids'] : null;
+		$exclude            = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
+		$no_update          = isset( $assoc_args['no-update'] ) ? true : false;
+		$sorting            = isset( $assoc_args['sorting'] ) ? $assoc_args['sorting'] : 'id asc';
+		$mode               = isset( $assoc_args['mode'] ) ? $assoc_args['mode'] : 'test';
+		$send_notifications = isset( $assoc_args['send-notifications'] ) ? true : false;
 
 		do {
 			if ( $next_link ) {
@@ -1099,8 +1104,12 @@ class Migrator_CLI extends WP_CLI_Command {
 
 			$response_data = json_decode( wp_remote_retrieve_body( $response ) );
 
-			// Disable WP emails before migration starts.
-			add_filter( 'pre_wp_mail', '__return_false', PHP_INT_MAX );
+			// Disable WP emails before migration starts, unless --send-notifications flag is added.
+			if ( ! $send_notifications ) {
+				add_filter( 'pre_wp_mail', '__return_false', PHP_INT_MAX );
+			} else {
+				WP_CLI::confirm( 'Are you sure you want to send out email notifications to users? This could potentially spam your users.' );
+			}
 
 			if ( empty( $response_data->orders ) ) {
 				WP_CLI::error( 'No Shopify orders found.' );
@@ -1156,7 +1165,9 @@ class Migrator_CLI extends WP_CLI_Command {
 		WP_CLI::success( 'All orders have been processed.' );
 
 		// Enable WP emails after order migration completes.
-		remove_filter( 'pre_wp_mail', '__return_false', PHP_INT_MAX );
+		if ( ! $send_notifications ) {
+			remove_filter( 'pre_wp_mail', '__return_false', PHP_INT_MAX );
+		}
 
 		if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Enabling WooCommerce Sequential Order Numbers plugin.' );
