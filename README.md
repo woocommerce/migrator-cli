@@ -7,7 +7,11 @@
 3. Grab the Shopify Access token by [creating a custom app](https://help.shopify.com/en/manual/apps/app-types/custom-apps). Make sure the required scopes for products and orders migration are selected.
 4. Update domain and access token in the config.php file.
 5. Activate the plugin.
-6. Important note for Order migration - To prevent accidental sending of notifications, there is a `--mode` flag that is set to test by default. This masks the email and phone. Please add `--mode=live` flag whenever you wish to do a final migration with unmasked email and phone. 
+
+## Important Notes
+
+1. For Order migration - To prevent accidental sending of notifications, there is a `--mode` flag that is set to test by default. This masks the email and phone. Please add `--mode=live` flag whenever you wish to do a final migration with unmasked email and phone. 
+2. For order imports, notifications are disabled. These notifications include default emails sent by WooCommerce to users ( 'New Account Created') and site admin ('New Order Received'), for every order has been disabled to prevent spamming. For any reason if you wish to have those notifications sent, please add `--send-notifications` 
 
 ## Commands
 
@@ -102,4 +106,8 @@
 
   [--mode=<live|test>]
     Defaults to 'test' where email address is suffixed with '.masked' and phone number is blanked. Please set this flag as 'live' when you wish to do the final migration with unmasked email and phone.
+
+	[--send-notifications]
+		If this flag is added, the migrator will send out 'New Account created' email notifications to users, for every new user imported; and 'New
+	 order' notification for each order to the site admin email. Beware of potential spamming before adding this flag!
 ```
