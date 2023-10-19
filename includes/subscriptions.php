@@ -1,13 +1,13 @@
 <?php
 
 class Migrator_CLI_Subscriptions {
-	public function import($assoc_args ) {
+	public function import( $assoc_args ) {
 
 		try {
 			Migrator_CLI_Utils::health_check();
 
-			if (!isset($assoc_args['subscriptions_export_file']) || !isset($assoc_args['orders_export_file'])) {
-				WP_CLI::line( WP_CLI::colorize('%RExport Files not provided. Go to Skio dashboard > Export and export both subscriptions and orders. Then pass the file path to --subscriptions_export_file and --orders_export_file args') );
+			if ( !isset( $assoc_args['subscriptions_export_file'] ) || !isset( $assoc_args['orders_export_file'] ) ) {
+				WP_CLI::line( WP_CLI::colorize( '%RExport Files not provided. Go to Skio dashboard > Export and export both subscriptions and orders. Then pass the file path to --subscriptions_export_file and --orders_export_file args' ) );
 				return;
 			}
 
@@ -15,20 +15,20 @@ class Migrator_CLI_Subscriptions {
 
 			$skio_orders = $this->get_data_from_file( $assoc_args['orders_export_file'] );
 
-			WP_CLI::line('Adding Subscription ids to orders');
+			WP_CLI::line( 'Adding Subscription ids to orders' );
 			$this->add_subscription_id_to_orders( $skio_orders );
 
 			$skio_subscriptions = $this->get_data_from_file( $assoc_args['subscriptions_export_file'] );
 
-			WP_CLI::line('Creating Subscriptions');
+			WP_CLI::line( 'Creating Subscriptions' );
 			$this->create_or_update_subscriptions( $skio_subscriptions );
 
 			Migrator_CLI_Utils::enable_sequential_orders();
 		} catch ( \Exception $e ) {
-			WP_CLI::line( WP_CLI::colorize(' %rError: ' . $e->getMessage() ) );
+			WP_CLI::line( WP_CLI::colorize( ' %rError: ' . $e->getMessage() ) );
 		}
 
-		WP_CLI::line( WP_CLI::colorize('%GDone%n') );
+		WP_CLI::line( WP_CLI::colorize( '%GDone%n' ) );
 	}
 
 	// Clones the line item and adds it to the subscription.
@@ -47,8 +47,8 @@ class Migrator_CLI_Subscriptions {
 	}
 
 	private function add_subscription_id_to_orders( $skio_orders ) {
-		foreach ($skio_orders as $shopify_order) {
-			WP_CLI::line('Processing order: ' . $shopify_order['orderPlatformNumber']);
+		foreach ( $skio_orders as $shopify_order ) {
+			WP_CLI::line( 'Processing order: ' . $shopify_order['orderPlatformNumber'] );
 
 			$args = array(
 				'meta_key' => '_order_number',
@@ -57,23 +57,23 @@ class Migrator_CLI_Subscriptions {
 				'numberposts' => 1,
 			);
 
-			$skio_orders = wc_get_orders($args);
+			$skio_orders = wc_get_orders( $args );
 
-			if (!$skio_orders) {
-				WP_CLI::line('Woo Order not found for Shopify Order: ' . $shopify_order['orderPlatformNumber']);
+			if ( ! $skio_orders ) {
+				WP_CLI::line( 'Woo Order not found for Shopify Order: ' . $shopify_order['orderPlatformNumber'] );
 				continue;
 			}
 
 			/** @var WC_Order $shopify_order */
-			$order = reset($skio_orders);
-			$order->add_meta_data('_skio_subscription_id', $shopify_order['subscriptionId']);
+			$order = reset( $skio_orders );
+			$order->add_meta_data( '_skio_subscription_id', $shopify_order['subscriptionId'] );
 			$order->save_meta_data();
 		}
 	}
 
-	private function create_or_update_subscriptions($skio_subscriptions ) {
-		foreach ($skio_subscriptions as $skio_subscription) {
-			WP_CLI::line('Processing subscription: ' . $skio_subscription['subscriptionId']);
+	private function create_or_update_subscriptions( $skio_subscriptions ) {
+		foreach ( $skio_subscriptions as $skio_subscription ) {
+			WP_CLI::line( 'Processing subscription: ' . $skio_subscription['subscriptionId'] );
 
 			// Get all the orders for that subscription.
 			$args = array(
@@ -83,22 +83,22 @@ class Migrator_CLI_Subscriptions {
 				'numberposts' => -1,
 			);
 
-			$existing_orders = wc_get_orders($args);
+			$existing_orders = wc_get_orders( $args );
 
-			if (!$existing_orders) {
-				WP_CLI::line('Woo Order not found for Skio Subscription: ' . $skio_subscription['subscriptionId']);
+			if ( ! $existing_orders ) {
+				WP_CLI::line( 'Woo Order not found for Skio Subscription: ' . $skio_subscription['subscriptionId'] );
 				continue;
 			}
 
 			// Used as the order that originated the subscription.
-			$oldest_order = reset($existing_orders);
+			$oldest_order = reset( $existing_orders );
 			// Most up to date order to make sure the subscription is correct.
-			$latest_order = end($existing_orders);
+			$latest_order = end( $existing_orders );
 
 			$subscription = $this->get_or_create_subscription( $skio_subscription, $oldest_order );
 
-			if ( is_wp_error( $subscription) ) {
-				WP_CLI::line('Error when creating the subscription: ' . $subscription->get_error_message());
+			if ( is_wp_error( $subscription ) ) {
+				WP_CLI::line( 'Error when creating the subscription: ' . $subscription->get_error_message() );
 				continue;
 			}
 
@@ -106,15 +106,15 @@ class Migrator_CLI_Subscriptions {
 			$this->update_billing_address( $subscription, $latest_order );
 			$this->update_shipping_address( $subscription, $latest_order );
 
-			$subscription->set_requires_manual_renewal(true);
-			$subscription->set_payment_method($latest_order->get_payment_method());
-			$subscription->set_payment_method_title($latest_order->get_payment_method_title());
-			$subscription->set_shipping_total($latest_order->get_shipping_total());
+			$subscription->set_requires_manual_renewal( true );
+			$subscription->set_payment_method( $latest_order->get_payment_method() );
+			$subscription->set_payment_method_title( $latest_order->get_payment_method_title() );
+			$subscription->set_shipping_total( $latest_order->get_shipping_total() );
 
 
-			$subscription->add_meta_data('_payment_method_id', $latest_order->get_meta('_payment_method_id'));
-			$subscription->add_meta_data('_payment_tokens', $latest_order->get_meta('_payment_tokens'));
-			$subscription->add_meta_data('_skio_subscription_id', $skio_subscription['subscriptionId']);
+			$subscription->add_meta_data( '_payment_method_id', $latest_order->get_meta( '_payment_method_id' ) );
+			$subscription->add_meta_data( '_payment_tokens', $latest_order->get_meta( '_payment_tokens' ) );
+			$subscription->add_meta_data( '_skio_subscription_id', $skio_subscription['subscriptionId'] );
 
 			$this->attatch_orders( $subscription, $existing_orders, $oldest_order );
 			$this->set_subscription_status( $subscription, $skio_subscription );
@@ -134,13 +134,13 @@ class Migrator_CLI_Subscriptions {
 			'status' => 'any',
 		);
 
-		$existing_subscriptions = wcs_get_orders_with_meta_query($args);
+		$existing_subscriptions = wcs_get_orders_with_meta_query( $args );
 
-		if ($existing_subscriptions) {
+		if ( $existing_subscriptions ) {
 			/** @var WC_Subscription $subscription */
-			$subscription = end($existing_subscriptions);
+			$subscription = end( $existing_subscriptions );
 
-			$subscription->update_dates(array(
+			$subscription->update_dates( array(
 				'cancelled' => 0,
 				'end' => 0,
 				'next_payment' => 0,
@@ -154,16 +154,16 @@ class Migrator_CLI_Subscriptions {
 				'last_order_date_paid' => 0,
 				'last_order_date_completed' => 0,
 				'payment_retry' => 0,
-			));
+			) );
 
 			$subscription->save();
 
-			WP_CLI::line('Found existing subscription updating it instead');
+			WP_CLI::line( 'Found existing subscription updating it instead' );
 		} else {
-			WP_CLI::line('Creating new subscription');
+			WP_CLI::line( 'Creating new subscription' );
 
-			$create_date = date_create($skio_subscription['createdAt']);
-			$create_date = date_format($create_date, 'Y-m-d H:i:s');
+			$create_date = date_create( $skio_subscription['createdAt'] );
+			$create_date = date_format( $create_date, 'Y-m-d H:i:s' );
 
 			$subscription = wcs_create_subscription(
 				array(
@@ -172,7 +172,7 @@ class Migrator_CLI_Subscriptions {
 					'customer_id' => $oldest_order->get_customer_id(),
 					'date_created' => $create_date,
 					'billing_interval' => $skio_subscription['billingPolicyIntervalCount'],
-					'billing_period' => mb_strtolower($skio_subscription['billingPolicyInterval']),
+					'billing_period' => mb_strtolower( $skio_subscription['billingPolicyInterval'] ),
 				)
 			);
 		}
@@ -181,72 +181,72 @@ class Migrator_CLI_Subscriptions {
 	}
 
 	private function add_line_items( $subscription, $latest_order ) {
-		foreach ($latest_order->get_items(array('line_item', 'tax', 'shipping', 'coupon')) as $item) {
-			$this->clone_item_to_subscription($item, $subscription);
+		foreach ( $latest_order->get_items( array( 'line_item', 'tax', 'shipping', 'coupon' ) ) as $item ) {
+			$this->clone_item_to_subscription( $item, $subscription );
 		}
 	}
 
 	private function update_billing_address( $subscription, $latest_order ) {
-		$subscription->set_billing_first_name($latest_order->get_billing_first_name());
-		$subscription->set_billing_last_name($latest_order->get_billing_last_name());
-		$subscription->set_billing_company($latest_order->get_billing_company());
-		$subscription->set_billing_address_1($latest_order->get_billing_address_1());
-		$subscription->set_billing_address_2($latest_order->get_billing_address_2());
-		$subscription->set_billing_city($latest_order->get_billing_city());
-		$subscription->set_billing_state($latest_order->get_billing_state());
-		$subscription->set_billing_postcode($latest_order->get_billing_postcode());
-		$subscription->set_billing_country($latest_order->get_billing_country());
-		$subscription->set_billing_phone($latest_order->get_billing_phone());
+		$subscription->set_billing_first_name( $latest_order->get_billing_first_name() );
+		$subscription->set_billing_last_name( $latest_order->get_billing_last_name() );
+		$subscription->set_billing_company( $latest_order->get_billing_company() );
+		$subscription->set_billing_address_1( $latest_order->get_billing_address_1() );
+		$subscription->set_billing_address_2( $latest_order->get_billing_address_2() );
+		$subscription->set_billing_city( $latest_order->get_billing_city() );
+		$subscription->set_billing_state( $latest_order->get_billing_state() );
+		$subscription->set_billing_postcode( $latest_order->get_billing_postcode() );
+		$subscription->set_billing_country( $latest_order->get_billing_country() );
+		$subscription->set_billing_phone( $latest_order->get_billing_phone() );
 	}
 
 	private function update_shipping_address( $subscription, $latest_order ) {
-		$subscription->set_shipping_first_name($latest_order->get_shipping_first_name());
-		$subscription->set_shipping_last_name($latest_order->get_shipping_last_name());
-		$subscription->set_shipping_company($latest_order->get_shipping_company());
-		$subscription->set_shipping_address_1($latest_order->get_shipping_address_1());
-		$subscription->set_shipping_address_2($latest_order->get_shipping_address_2());
-		$subscription->set_shipping_city($latest_order->get_shipping_city());
-		$subscription->set_shipping_state($latest_order->get_shipping_state());
-		$subscription->set_shipping_postcode($latest_order->get_shipping_postcode());
-		$subscription->set_shipping_country($latest_order->get_shipping_country());
-		$subscription->set_shipping_phone($latest_order->get_shipping_phone());
+		$subscription->set_shipping_first_name( $latest_order->get_shipping_first_name() );
+		$subscription->set_shipping_last_name( $latest_order->get_shipping_last_name() );
+		$subscription->set_shipping_company( $latest_order->get_shipping_company() );
+		$subscription->set_shipping_address_1( $latest_order->get_shipping_address_1() );
+		$subscription->set_shipping_address_2( $latest_order->get_shipping_address_2() );
+		$subscription->set_shipping_city( $latest_order->get_shipping_city() );
+		$subscription->set_shipping_state( $latest_order->get_shipping_state() );
+		$subscription->set_shipping_postcode( $latest_order->get_shipping_postcode() );
+		$subscription->set_shipping_country( $latest_order->get_shipping_country() );
+		$subscription->set_shipping_phone( $latest_order->get_shipping_phone() );
 
 	}
 
 	private function attatch_orders( $subscription, $existing_orders, $oldest_order ) {
-		foreach ($existing_orders as $order) {
+		foreach ( $existing_orders as $order ) {
 			// Prevents adding the oldest order twice.
 			if ( $order->get_id() == $oldest_order->get_id() ) {
 				continue;
 			}
 
-			WCS_Related_Order_Store::instance()->add_relation($order, $subscription, 'renewal');
+			WCS_Related_Order_Store::instance()->add_relation( $order, $subscription, 'renewal' );
 		}
 	}
 
 	private function set_subscription_status( $subscription, $skio_subscription ) {
 
-		if (!in_array($skio_subscription['status'], array('ACTIVE', 'CANCELLED'), true)) {
-			WP_CLI::line('Unknown subscription status: ' . $skio_subscription['status']);
+		if ( !in_array( $skio_subscription['status'], array( 'ACTIVE', 'CANCELLED' ), true) ) {
+			WP_CLI::line( 'Unknown subscription status: ' . $skio_subscription['status'] );
 		}
 
 		$subscription->set_status( mb_strtolower( $skio_subscription['status'] ) );
 
-		if ('ACTIVE' === $skio_subscription['status'] && isset($skio_subscription['nextBillingDate'])) {
-			$next_payment = date_create($skio_subscription['nextBillingDate']);
-			$next_payment = date_format($next_payment, 'Y-m-d H:i:s');
-			$subscription->update_dates(array(
+		if ( 'ACTIVE' === $skio_subscription['status'] && isset( $skio_subscription['nextBillingDate'] ) ) {
+			$next_payment = date_create( $skio_subscription['nextBillingDate'] );
+			$next_payment = date_format( $next_payment, 'Y-m-d H:i:s' );
+			$subscription->update_dates( array(
 				'next_payment' => $next_payment,
-			));
+			) );
 		}
 
 		if ( 'CANCELLED' === $skio_subscription['status'] && isset( $skio_subscription['cancelledAt'] ) ) {
-			$cancelled_date = new DateTime($skio_subscription['cancelledAt']);
-			$cancelled_date = date_format($cancelled_date, 'Y-m-d H:i:s');
-			$subscription->update_dates(array(
+			$cancelled_date = new DateTime( $skio_subscription['cancelledAt'] );
+			$cancelled_date = date_format( $cancelled_date, 'Y-m-d H:i:s' );
+			$subscription->update_dates( array(
 				'cancelled' => $cancelled_date,
 				'end' => $cancelled_date
-			));
+			) );
 		}
 	}
 }
