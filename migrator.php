@@ -1668,7 +1668,24 @@ class Migrator_CLI extends WP_CLI_Command {
 		return $woo_status;
 	}
 
-	public function subscriptions( $args, $assoc_args ) {
+	/**
+	 * Migrate subscriptions from Skio to WooCommerce.
+	 * This funciton will import from json files not from the api.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--subscriptions_export_file]
+	 * : The subscriptions json file exported from Skio dashboard
+	 *
+	 *  [--orders_export_file]
+	 * : The orders json file exported from Skio dashboard
+	 *
+	 * Example:
+	 * wp migrator skio_subscriptions --subscriptions_export_file=subscriptions.json --orders_export_file=orders.json
+	 *
+	 * @when after_wp_load
+	 */
+	public function skio_subscriptions( $args, $assoc_args ) {
 		$this->assoc_args = $assoc_args;
 
 		$subscriptions = new Migrator_CLI_Subscriptions();
