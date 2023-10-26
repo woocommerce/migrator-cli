@@ -11,14 +11,13 @@ class Migrator_CLI_Subscriptions {
 				return;
 			}
 
-			Migrator_CLI_Utils::disable_sequential_orders();
-
 			$skio_orders = $this->get_data_from_file( $assoc_args['orders_export_file'] );
+			$skio_subscriptions = $this->get_data_from_file( $assoc_args['subscriptions_export_file'] );
+
+			Migrator_CLI_Utils::disable_sequential_orders();
 
 			WP_CLI::line( 'Adding Subscription ids to orders' );
 			$this->add_subscription_id_to_orders( $skio_orders );
-
-			$skio_subscriptions = $this->get_data_from_file( $assoc_args['subscriptions_export_file'] );
 
 			WP_CLI::line( 'Creating Subscriptions' );
 			$this->create_or_update_subscriptions( $skio_subscriptions );
@@ -43,6 +42,11 @@ class Migrator_CLI_Subscriptions {
 
 	private function get_data_from_file( $file )
 	{
+		if ( ! is_file( $file ) ) {
+			WP_CLI::line( WP_CLI::colorize( '%RFile not found: ' . $file ) );
+			die();
+		}
+
 		return json_decode(file_get_contents( $file ), true);
 	}
 
