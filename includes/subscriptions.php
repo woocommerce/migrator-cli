@@ -187,8 +187,8 @@ class Migrator_CLI_Subscriptions {
 	private function add_line_items( $subscription, $latest_order ) {
 
 		// Prevents duplication on updates.
-		foreach ( $latest_order->get_items( array( 'line_item', 'tax', 'shipping', 'coupon' ) ) as $subscription_item ) {
-			$subscription->remove_item( $subscription_item );
+		foreach ( $subscription->get_items( array( 'line_item', 'tax', 'shipping', 'coupon' ) ) as $subscription_item ) {
+			$subscription->remove_item( $subscription_item->get_id() );
 		}
 
 		foreach ( $latest_order->get_items( array( 'line_item', 'tax', 'shipping', 'coupon' ) ) as $item ) {
