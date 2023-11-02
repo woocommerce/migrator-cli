@@ -183,6 +183,8 @@ class Migrator_CLI_Subscriptions {
 			);
 		}
 
+		WP_CLI::line( 'Woo Subscription id: ' . $subscription->get_id() );
+
 		return $subscription;
 	}
 
