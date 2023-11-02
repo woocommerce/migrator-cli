@@ -85,6 +85,8 @@ class Migrator_CLI_Subscriptions {
 				'meta_value' => $skio_subscription['subscriptionId'],
 				'meta_compare' => '=',
 				'numberposts' => -1,
+				'orderby' => 'date_created',
+				'order' => 'ASC',
 			);
 
 			$existing_orders = wc_get_orders( $args );
