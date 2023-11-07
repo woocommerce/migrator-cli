@@ -111,3 +111,17 @@
 		If this flag is added, the migrator will send out 'New Account created' email notifications to users, for every new user imported; and 'New
 	 order' notification for each order to the site admin email. Beware of potential spamming before adding this flag!
 ```
+
+```
+  wp migrator skio_subscriptions [--subscriptions_export_file] [--orders_export_file ]
+
+  The json files can downloaded from the Skio dashboard at https://dashboard.skio.com/subscriptions/export 
+
+  OPTIONS
+
+  [--subscriptions_export_file]
+    The subscriptions json file exported from Skio dashboard
+
+  [--orders_export_file]
+    The orders json file exported from Skio dashboard
+```

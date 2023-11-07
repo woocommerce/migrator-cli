@@ -16,6 +16,9 @@ if ( file_exists( __DIR__ . '/config.php' ) ) {
 	require_once __DIR__ . '/config.php';
 }
 
+require_once __DIR__ . '/includes/utils.php';
+require_once __DIR__ . '/includes/subscriptions.php';
+
 class Migrator_CLI extends WP_CLI_Command {
 	private $additional_product_data, $migration_data, $order_items_mapping, $order_tax_rate_ids_mapping, $assoc_args, $fields;
 
@@ -47,7 +50,7 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * @when after_wp_load
 	 */
 	public function fix_missing_order_tags( $args, $assoc_args ) {
-		$this->health_check();
+		Migrator_CLI_Utils::health_check();
 
 		$dry_run   = isset( $assoc_args['dry-run'] ) ? true : false;
 		$before    = isset( $assoc_args['before'] ) ? $assoc_args['before'] : null;
@@ -159,7 +162,7 @@ class Migrator_CLI extends WP_CLI_Command {
 
 	/**
 	 * Migrate products from Shopify to WooCommerce.
-   *
+	*
 	 * ## OPTIONS
 	 *
 	 * [--before]
@@ -210,7 +213,7 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * @when after_wp_load
 	 */
 	public function products( $args, $assoc_args ) {
-		$this->health_check();
+		Migrator_CLI_Utils::health_check();
 		$this->assoc_args = $assoc_args;
 
 		if ( isset( $assoc_args['fields'] ) ) {
@@ -338,20 +341,6 @@ class Migrator_CLI extends WP_CLI_Command {
 			'seo',
 			'attributes',
 		);
-	}
-
-	private function health_check() {
-		if ( ! function_exists( 'wc_get_orders' ) ) {
-			WP_CLI::error( 'WooCommerce is not active.' );
-		}
-
-		if ( ! ACCESS_TOKEN ) {
-			WP_CLI::error( 'Missing Shopify access token.' );
-		}
-
-		if ( ! SHOPIFY_DOMAIN ) {
-			WP_CLI::error( 'Missing Shopify domain.' );
-		}
 	}
 
 	private function rest_request( $endpoint, $body = array() ) {
@@ -858,7 +847,7 @@ class Migrator_CLI extends WP_CLI_Command {
 			}
 
 			$attributes = array_map(
-				function( $taxonomy, $value ) {
+				function ( $taxonomy, $value ) {
 					$attribute = new WC_Product_Attribute();
 					$attribute->set_name( $taxonomy );
 					$attribute->set_id( wc_attribute_taxonomy_id_by_name( $taxonomy ) );
@@ -1064,13 +1053,10 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * @when after_wp_load
 	 */
 	public function orders( $args, $assoc_args ) {
-		$this->health_check();
+		Migrator_CLI_Utils::health_check();
 		$this->assoc_args = $assoc_args;
 
-		if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'We need to disable WooCommerce Sequential Order Numbers plugin while migration to ensure the order number is set correctly. The plugin will be enabled again after migration finished.' );
-			WP_CLI::runcommand( 'plugin deactivate woocommerce-sequential-order-numbers' );
-		}
+		Migrator_CLI_Utils::disable_sequential_orders();
 
 		$before             = isset( $assoc_args['before'] ) ? $assoc_args['before'] : null;
 		$after              = isset( $assoc_args['after'] ) ? $assoc_args['after'] : null;
@@ -1169,10 +1155,7 @@ class Migrator_CLI extends WP_CLI_Command {
 			remove_filter( 'pre_wp_mail', '__return_false', PHP_INT_MAX );
 		}
 
-		if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Enabling WooCommerce Sequential Order Numbers plugin.' );
-			WP_CLI::runcommand( 'plugin activate woocommerce-sequential-order-numbers' );
-		}
+		Migrator_CLI_Utils::enable_sequential_orders();
 	}
 
 	private function get_corresponding_woo_order( $shopify_order ) {
@@ -1611,7 +1594,7 @@ class Migrator_CLI extends WP_CLI_Command {
 			$refund->update_meta_data( '_refund_completed_date', $shopify_refund->processed_at );
 
 			// Update refund transaction ID
-			if ( count ( $shopify_refund->transactions ) > 0 && property_exists( $shopify_refund->transactions[0], 'receipt') && property_exists( $shopify_refund->transactions[0]->receipt, 'refund_transaction_id' ) ) {
+			if ( count( $shopify_refund->transactions ) > 0 && property_exists( $shopify_refund->transactions[0], 'receipt' ) && property_exists( $shopify_refund->transactions[0]->receipt, 'refund_transaction_id' ) ) {
 				$refund->update_meta_data( '_transaction_id', $shopify_refund->transactions[0]->receipt->refund_transaction_id );
 			}
 
@@ -1683,6 +1666,30 @@ class Migrator_CLI extends WP_CLI_Command {
 		}
 
 		return $woo_status;
+	}
+
+	/**
+	 * Migrate subscriptions from Skio to WooCommerce.
+	 * This funciton will import from json files not from the api.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--subscriptions_export_file]
+	 * : The subscriptions json file exported from Skio dashboard
+	 *
+	 *  [--orders_export_file]
+	 * : The orders json file exported from Skio dashboard
+	 *
+	 * Example:
+	 * wp migrator skio_subscriptions --subscriptions_export_file=subscriptions.json --orders_export_file=orders.json
+	 *
+	 * @when after_wp_load
+	 */
+	public function skio_subscriptions( $args, $assoc_args ) {
+		$this->assoc_args = $assoc_args;
+
+		$subscriptions = new Migrator_CLI_Subscriptions();
+		$subscriptions->import( $assoc_args );
 	}
 }
 
