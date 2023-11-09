@@ -17,6 +17,7 @@ if ( file_exists( __DIR__ . '/config.php' ) ) {
 }
 
 require_once __DIR__ . '/includes/utils.php';
+require_once __DIR__ . '/includes/payment_methods.php';
 require_once __DIR__ . '/includes/subscriptions.php';
 
 class Migrator_CLI extends WP_CLI_Command {
@@ -1691,7 +1692,14 @@ class Migrator_CLI extends WP_CLI_Command {
 		$subscriptions = new Migrator_CLI_Subscriptions();
 		$subscriptions->import( $assoc_args );
 	}
+
+	public function import_stripe_data() {
+		$payment_methods = new Migrator_CLI_Payment_Methods();
+		$payment_methods->import_stripe_data_into_woopayments();
+	}
 }
+
+
 
 add_action(
 	'cli_init',
