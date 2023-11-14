@@ -47,7 +47,7 @@ class Migrator_CLI_Utils {
 		);
 	}
 
-	public function graphql_request( $body ) {
+	public static function graphql_request( $body ) {
 		return wp_remote_post(
 			'https://' . SHOPIFY_DOMAIN . '/admin/api/2023-04/graphql.json',
 			array(
