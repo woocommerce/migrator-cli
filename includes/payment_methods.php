@@ -37,8 +37,17 @@ class Migrator_CLI_Payment_Methods {
 		$customer_service_api = WC_Payments::get_customer_service_api();
 		$stripe_payment_methods = $customer_service_api->get_payment_methods_for_customer( $stripe_customer['id'] );
 
+		$saved_payment_tokens = WC_Payment_Tokens::get_customer_tokens( $user->ID );
+
 		foreach ( $stripe_payment_methods as $stripe_payment_method ) {
-			$token = new WC_Payment_Token_CC();
+
+			// Prevents duplication of payment methods.
+			$token = $this->search_payment_token_by_stripe_id( $saved_payment_tokens, $stripe_payment_method['id'] );
+
+			if ( ! $token ) {
+				$token = new WC_Payment_Token_CC();
+			}
+
 			$token->set_gateway_id( \WCPay\Payment_Methods\CC_Payment_Gateway::GATEWAY_ID );
 			$token->set_expiry_month( $stripe_payment_method['card']['exp_month'] );
 			$token->set_expiry_year( $stripe_payment_method['card']['exp_year'] );
@@ -48,6 +57,14 @@ class Migrator_CLI_Payment_Methods {
 			$token->set_token( $stripe_payment_method['id'] );
 			$token->set_user_id( $user->ID );
 			$token->save();
+		}
+	}
+
+	private function search_payment_token_by_stripe_id( $saved_payment_tokens, $stripe_payment_method_id ) {
+		foreach ( $saved_payment_tokens as $saved_payment_token ) {
+			if ( $stripe_payment_method_id === $saved_payment_token->get_token() ) {
+				return $saved_payment_token;
+			}
 		}
 	}
 
