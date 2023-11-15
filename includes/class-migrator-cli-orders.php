@@ -190,6 +190,8 @@ class Migrator_CLI_Orders {
 
 		$this->process_shipment_tracking( $order, $shopify_order );
 
+		$this->process_payment_data( $order, $shopify_order );
+
 		$order->update_meta_data( '_order_items_mapping', $this->order_items_mapping );
 		$order->save();
 
@@ -621,5 +623,34 @@ class Migrator_CLI_Orders {
 		}
 
 		$line_item->set_taxes( $taxes );
+	}
+
+	private function process_payment_data( $order, $shopify_order ) {
+		$response = Migrator_CLI_Utils::rest_request('orders/' . $shopify_order->id . '/transactions.json');
+		$transactions = json_decode( wp_remote_retrieve_body( $response ) );
+		$transaction = $this->get_capture_transaction( $transactions->transactions );
+
+		if ( ! $transaction ) {
+			WP_CLI::line( WP_CLI::colorize( ' %rCapture transaction not found' ) );
+			return;
+		}
+
+		switch ( $transaction->gateway ) {
+			case 'shopify_payments':
+				$order->update_meta_data( '_original_payment_gateway', $transaction->gateway );
+				$order->update_meta_data( '_original_payment_method_id', $transaction->receipt->payment_method );
+				$order->update_meta_data( '_original_payment_last_4', substr( $transaction->payment_details->credit_card_number, -4 ) );
+				break;
+			default:
+				WP_CLI::line( WP_CLI::colorize( ' %rUnkown payment gateway: ' . $transaction->gateway ) );
+		}
+	}
+
+	private function get_capture_transaction( $transactions ) {
+		foreach ( $transactions as $transaction ) {
+			if ( 'capture' === $transaction->kind ) {
+				return $transaction;
+			}
+		}
 	}
 }
