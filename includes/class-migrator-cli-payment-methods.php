@@ -11,8 +11,8 @@ class Migrator_CLI_Payment_Methods {
 			die();
 		}
 
-		$request = \WCPay\Core\Server\Request::get( WC_Payments_API_Client::CUSTOMERS_API );
-		$result = $request->send();
+		$request          = \WCPay\Core\Server\Request::get( WC_Payments_API_Client::CUSTOMERS_API );
+		$result           = $request->send();
 		$stripe_customers = $result['data'];
 
 		$this->import_customers_data( $stripe_customers );
@@ -23,7 +23,7 @@ class Migrator_CLI_Payment_Methods {
 		foreach ( $stripe_customers as $stripe_customer ) {
 
 			$user = get_user_by( 'email', $stripe_customer['email'] );
-			if ( ! $user || is_wp_error( $user ) || $user->ID === 0 ) {
+			if ( ! $user || is_wp_error( $user ) || 0 === $user->ID ) {
 				WP_CLI::line( WP_CLI::colorize( '%RCustomer not found: ' . $stripe_customer['email'] ) );
 				continue;
 			}
@@ -34,7 +34,7 @@ class Migrator_CLI_Payment_Methods {
 	}
 
 	private function import_payment_methods( $stripe_customer, $user ) {
-		$customer_service_api = WC_Payments::get_customer_service_api();
+		$customer_service_api   = WC_Payments::get_customer_service_api();
 		$stripe_payment_methods = $customer_service_api->get_payment_methods_for_customer( $stripe_customer['id'] );
 
 		$saved_payment_tokens = WC_Payment_Tokens::get_customer_tokens( $user->ID );

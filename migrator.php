@@ -17,7 +17,7 @@ if ( file_exists( __DIR__ . '/config.php' ) ) {
 }
 
 require_once __DIR__ . '/includes/utils.php';
-require_once __DIR__ . '/includes/payment_methods.php';
+require_once __DIR__ . '/includes/class-migrator-cli-payment-methods.php';
 require_once __DIR__ . '/includes/subscriptions.php';
 
 class Migrator_CLI extends WP_CLI_Command {
