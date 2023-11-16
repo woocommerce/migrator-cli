@@ -22,7 +22,7 @@ class Migrator_CLI_Payment_Methods {
 	private function import_customers_data( $stripe_customers ) {
 		foreach ( $stripe_customers as $stripe_customer ) {
 
-			$user = get_user_by('email', $stripe_customer['email'] );
+			$user = get_user_by( 'email', $stripe_customer['email'] );
 			if ( ! $user || is_wp_error( $user ) || $user->ID === 0 ) {
 				WP_CLI::line( WP_CLI::colorize( '%RCustomer not found: ' . $stripe_customer['email'] ) );
 				continue;
