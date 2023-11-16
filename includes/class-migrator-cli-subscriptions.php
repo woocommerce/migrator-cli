@@ -122,6 +122,7 @@ class Migrator_CLI_Subscriptions {
 
 			$this->attatch_orders( $subscription, $existing_orders, $oldest_order );
 			$this->set_subscription_status( $subscription, $skio_subscription );
+			$this->process_payment_method( $subscription, $skio_subscription, $latest_order );
 
 			$subscription->save();
 			$subscription->calculate_totals();
@@ -264,6 +265,23 @@ class Migrator_CLI_Subscriptions {
 					'end'       => $cancelled_date,
 				)
 			);
+		}
+	}
+
+	private function process_payment_method( WC_Subscription $subscription, $skio_subscription, WC_Order $latest_order ) {
+		switch ( $latest_order->get_meta( '_original_payment_gateway' ) ) {
+			case 'shopify_payments':
+				if ( (int) $latest_order->get_meta( '_original_payment_last_4' ) !== (int) $skio_subscription['paymentMethodLastDigits'] ) {
+					WP_CLI::line( WP_CLI::colorize( '%RMissmatch in subscription payment method last 4' ) );
+					return;
+				}
+
+				$subscription->update_meta_data( '_original_payment_gateway', $latest_order->get_meta( '_original_payment_gateway' ) );
+				$subscription->update_meta_data( '_original_payment_method_id', $latest_order->get_meta( '_original_payment_method_id' ) );
+				$subscription->update_meta_data( '_original_payment_last_4', $latest_order->get_meta( '_original_payment_last_4' ) );
+				break;
+			default:
+				WP_CLI::line( WP_CLI::colorize( '%RUnknown payment gateway' ) );
 		}
 	}
 }
