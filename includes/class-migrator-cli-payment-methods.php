@@ -34,8 +34,8 @@ class Migrator_CLI_Payment_Methods {
 	}
 
 	private function import_payment_methods( $stripe_customer, $user ) {
-		$customer_service_api   = WC_Payments::get_customer_service_api();
-		$stripe_payment_methods = $customer_service_api->get_payment_methods_for_customer( $stripe_customer['id'] );
+		$payments_api_client    = WC_Payments::get_payments_api_client();
+		$stripe_payment_methods = $payments_api_client->get_payment_methods( $stripe_customer['id'], 'card' )['data'];
 
 		$saved_payment_tokens = WC_Payment_Tokens::get_customer_tokens( $user->ID );
 
