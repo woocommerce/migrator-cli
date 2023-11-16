@@ -55,7 +55,7 @@ class Migrator_CLI_Utils {
 					'X-Shopify-Access-Token' => ACCESS_TOKEN,
 					'Content-Type'           => 'application/json',
 				),
-				'body'    => json_encode( $body ),
+				'body'    => wp_json_encode( $body ),
 			)
 		);
 	}

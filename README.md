@@ -3,7 +3,7 @@
 ## Getting started
 
 1. Clone the repo into `wp-content/plugins`.
-2. Copy the `config.example.php` to `config.php`.
+2. Copy the `config-example.php` to `config.php`.
 3. Grab the Shopify Access token by [creating a custom app](https://help.shopify.com/en/manual/apps/app-types/custom-apps). Make sure the required scopes for products and orders migration are selected.
 4. Update domain and access token in the config.php file.
 5. Activate the plugin.

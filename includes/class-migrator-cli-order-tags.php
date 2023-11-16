@@ -9,6 +9,7 @@ class Migrator_CLI_Order_Tags {
 		$after     = isset( $assoc_args['after'] ) ? $assoc_args['after'] : null;
 		$limit     = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
 		$perpage   = isset( $assoc_args['perpage'] ) ? $assoc_args['perpage'] : 50;
+		$perpage   = min( $perpage, $limit );
 		$next_link = isset( $assoc_args['next'] ) ? $assoc_args['next'] : '';
 
 		if ( $next_link ) {
@@ -17,11 +18,11 @@ class Migrator_CLI_Order_Tags {
 			$response = Migrator_CLI_Utils::rest_request(
 				'orders.json?',
 				array(
-					'status'         => 'any',
 					'limit'          => $perpage,
-					'fields'         => 'id,order_number,tags,created_at',
 					'created_at_max' => $before,
 					'created_at_min' => $after,
+					'status'         => 'any',
+					'fields'         => 'id,order_number,tags,created_at',
 				)
 			);
 		}
@@ -34,8 +35,7 @@ class Migrator_CLI_Order_Tags {
 
 		WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->orders ), min( $limit, $perpage, count( $response_data->orders ) ), count( $response_data->orders ) ) );
 
-		for ( $i = 0; $i < min( $limit, $perpage, count( $response_data->orders ) ); $i++ ) {
-			$shopify_order = $response_data->orders[ $i ];
+		foreach ( $response_data->orders as $shopify_order ) {
 			WP_CLI::line( '-------------------------------' );
 			$order_number = $shopify_order->order_number;
 

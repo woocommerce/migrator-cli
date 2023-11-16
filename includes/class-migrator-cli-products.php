@@ -1,7 +1,9 @@
 <?php
 
 class Migrator_CLI_Products {
-	private $fields, $additional_product_data, $migration_data;
+	private $fields;
+	private $additional_product_data;
+	private $migration_data;
 
 	public function migrate_products( $assoc_args ) {
 		Migrator_CLI_Utils::health_check();
@@ -23,6 +25,7 @@ class Migrator_CLI_Products {
 		$after        = isset( $assoc_args['after'] ) ? $assoc_args['after'] : null;
 		$limit        = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
 		$perpage      = isset( $assoc_args['perpage'] ) ? $assoc_args['perpage'] : 50;
+		$perpage      = min( $perpage, $limit );
 		$next_link    = isset( $assoc_args['next'] ) ? $assoc_args['next'] : '';
 		$status       = isset( $assoc_args['status'] ) ? $assoc_args['status'] : 'active';
 		$ids          = isset( $assoc_args['ids'] ) ? $assoc_args['ids'] : null;
@@ -55,10 +58,9 @@ class Migrator_CLI_Products {
 
 		WP_CLI::line( sprintf( 'Found %d products in Shopify. Processing %d products.', count( $response_data->products ), min( $limit, $perpage, count( $response_data->products ) ) ) );
 
-		for ( $i = 0; $i < min( $limit, $perpage, count( $response_data->products ) ); $i++ ) {
-			$shopify_product = $response_data->products[ $i ];
+		foreach ( $response_data->products as $shopify_product ) {
 
-			if ( in_array( $shopify_product->id, $exclude ) || $this->preg_match_array( $shopify_product->variants[0]->sku, $exclude ) ) {
+			if ( in_array( $shopify_product->id, $exclude, true ) || $this->preg_match_array( $shopify_product->variants[0]->sku, $exclude ) ) {
 				WP_CLI::line( sprintf( 'Product %s is excluded. Skipping...', $shopify_product->handle ) );
 				continue;
 			}
@@ -73,7 +75,7 @@ class Migrator_CLI_Products {
 				$curent_product_type = 'variable';
 			}
 
-			if ( $product_type !== 'all' && $product_type !== $curent_product_type ) {
+			if ( 'all' !== $product_type && $product_type !== $curent_product_type ) {
 				WP_CLI::line( sprintf( 'Product %s is %s. Skipping...', $shopify_product->handle, $curent_product_type ) );
 				continue;
 			}
@@ -273,7 +275,7 @@ class Migrator_CLI_Products {
 
 		if ( $this->should_process( 'catalog_visibility' ) ) {
 			if ( $this->additional_product_data && property_exists( $this->additional_product_data, 'onlineStoreUrl' ) ) {
-				if ( $this->additional_product_data->onlineStoreUrl === null ) {
+				if ( null === $this->additional_product_data->onlineStoreUrl ) {
 					$product->set_catalog_visibility( 'hidden' );
 				} else {
 					$this->migration_data['original_url'] = $this->additional_product_data->onlineStoreUrl;
@@ -304,8 +306,8 @@ class Migrator_CLI_Products {
 				$product->set_sku( $shopify_product->variants[0]->sku );
 			}
 			if ( $this->should_process( 'stock' ) ) {
-				$product->set_manage_stock( $shopify_product->variants[0]->inventory_management === 'shopify' );
-				$product->set_stock_status( $shopify_product->variants[0]->inventory_quantity === 'deny' ? 'outofstock' : 'instock' );
+				$product->set_manage_stock( 'shopify' === $shopify_product->variants[0]->inventory_management );
+				$product->set_stock_status( 'deny' === $shopify_product->variants[0]->inventory_quantity ? 'outofstock' : 'instock' );
 				$product->set_stock_quantity( $shopify_product->variants[0]->inventory_quantity );
 			}
 			if ( $this->should_process( 'weight' ) ) {
@@ -357,10 +359,10 @@ class Migrator_CLI_Products {
 	}
 
 	private function should_process( $field ) {
-		return in_array( $field, $this->fields );
+		return in_array( $field, $this->fields, true );
 	}
 
-	private function sanitize_product_description( $html, $tags = array() ) {
+	private function sanitize_product_description( $html ) {
 		$html = mb_convert_encoding( $html, 'HTML-ENTITIES', 'UTF-8' );
 
 		if ( ! $html ) {
@@ -378,7 +380,7 @@ class Migrator_CLI_Products {
 	private function get_woo_product_status( $shopify_product ) {
 		$woo_product_status = 'draft';
 
-		if ( $shopify_product->status === 'active' ) {
+		if ( 'active' === $shopify_product->status ) {
 			$woo_product_status = 'publish';
 		}
 
@@ -449,7 +451,7 @@ class Migrator_CLI_Products {
 
 	private function get_converted_weight( $weight, $weight_unit ) {
 		$store_weight_unit = get_option( 'woocommerce_weight_unit' );
-		if ( $store_weight_unit === 'lbs' ) {
+		if ( 'lbs' === $store_weight_unit ) {
 			$store_weight_unit = 'lb';
 		}
 
@@ -620,7 +622,7 @@ class Migrator_CLI_Products {
 			$variation = new WC_Product_Variation();
 
 			// Check if the variant has been handled by our migrator before.
-			if ( in_array( $variant->id, array_keys( $this->migration_data['variations_mapping'] ) ) ) {
+			if ( in_array( $variant->id, array_keys( $this->migration_data['variations_mapping'] ), true ) ) {
 				$_variation = wc_get_product( $this->migration_data['variations_mapping'][ $variant->id ] );
 				if ( is_a( $_variation, 'WC_Product_Variation' ) ) {
 					$variation = $_variation;
@@ -634,13 +636,12 @@ class Migrator_CLI_Products {
 					// The product is already a variation.
 					$variation = new WC_Product_Variation( $check_product );
 					WP_CLI::line( 'Found existing variation (SKU: ' . $variation->get_sku() . '). Updating.' );
-				} else {
+
 					// The SKU was incorrectly assigned to a product. Remove the SKU
 					// from the product to set it to a new variation.
-					if ( is_a( $check_product, 'WC_Product' ) ) {
-						$check_product->set_sku( '' );
-						$check_product->save();
-					}
+				} elseif ( is_a( $check_product, 'WC_Product' ) ) {
+					$check_product->set_sku( '' );
+					$check_product->save();
 				}
 			}
 
@@ -649,9 +650,9 @@ class Migrator_CLI_Products {
 			$variation->set_status( 'publish' );
 
 			if ( $this->should_process( 'stock' ) ) {
-				$variation->set_manage_stock( $variant->inventory_management === 'shopify' );
+				$variation->set_manage_stock( 'shopify' === $variant->inventory_management );
 				$variation->set_stock_quantity( $variant->inventory_quantity );
-				$variation->set_stock_status( $variant->inventory_quantity === 'deny' ? 'outofstock' : 'instock' );
+				$variation->set_stock_status( 'deny' === $variant->inventory_quantity ? 'outofstock' : 'instock' );
 			}
 
 			if ( $this->should_process( 'weight' ) ) {
@@ -665,7 +666,7 @@ class Migrator_CLI_Products {
 			}
 
 			if ( $this->should_process( 'price' ) ) {
-				if ( $variant->compare_at_price and $variant->compare_at_price > $variant->price ) {
+				if ( $variant->compare_at_price && $variant->compare_at_price > $variant->price ) {
 					$variation->set_regular_price( $variant->compare_at_price );
 					$variation->set_sale_price( $variant->price );
 				} else {
@@ -707,16 +708,14 @@ class Migrator_CLI_Products {
 		$current_seo_description = $product->get_meta( '_yoast_wpseo_metadesc' );
 
 		$title       = $product->get_title();
-		$description = $product->get_short_description() ?: get_the_excerpt( $product->get_id() );
+		$description = $product->get_short_description() ? $product->get_short_description() : get_the_excerpt( $product->get_id() );
 
 		foreach ( $this->additional_product_data->metafields->edges as $field ) {
-			// $key                                        = sprintf( '%s_%s',
-			// $field->node->namespace, $field->node->key );
-			if ( $field->node->namespace === 'global' && $field->node->key === 'title_tag' ) {
+			if ( 'global' === $field->node->namespace && 'title_tag' === $field->node->key ) {
 				$title = $field->node->value;
 			}
 
-			if ( $field->node->namespace === 'global' && $field->node->key === 'description_tag' ) {
+			if ( 'global' === $field->node->namespace && 'description_tag' === $field->node->key ) {
 				$description = $field->node->value;
 			}
 		}
@@ -740,7 +739,7 @@ class Migrator_CLI_Products {
 		$variations = $product->get_children();
 
 		foreach ( $variations as $variation_id ) {
-			if ( ! in_array( $variation_id, array_values( $this->migration_data['variations_mapping'] ) ) ) {
+			if ( ! in_array( $variation_id, array_values( $this->migration_data['variations_mapping'] ), true ) ) {
 				WP_CLI::line( 'Deleting orphan variation (ID: ' . $variation_id . ')' );
 				wp_delete_post( $variation_id, true );
 			}

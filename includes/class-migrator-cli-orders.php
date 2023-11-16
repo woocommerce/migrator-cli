@@ -2,7 +2,9 @@
 
 class Migrator_CLI_Orders {
 
-	private $assoc_args, $order_items_mapping, $order_tax_rate_ids_mapping;
+	private $assoc_args;
+	private $order_items_mapping;
+	private $order_tax_rate_ids_mapping;
 
 	public function migrate_orders( $assoc_args ) {
 		$this->assoc_args = $assoc_args;
@@ -14,6 +16,7 @@ class Migrator_CLI_Orders {
 		$after              = isset( $assoc_args['after'] ) ? $assoc_args['after'] : null;
 		$limit              = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
 		$perpage            = isset( $assoc_args['perpage'] ) ? $assoc_args['perpage'] : 50;
+		$perpage            = min( $perpage, $limit );
 		$next_link          = isset( $assoc_args['next'] ) ? $assoc_args['next'] : '';
 		$status             = isset( $assoc_args['status'] ) ? $assoc_args['status'] : 'any';
 		$ids                = isset( $assoc_args['ids'] ) ? $assoc_args['ids'] : null;
@@ -55,10 +58,9 @@ class Migrator_CLI_Orders {
 
 			WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->orders ), min( $limit, $perpage, count( $response_data->orders ) ) ) );
 
-			for ( $i = 0; $i < min( $limit, $perpage, count( $response_data->orders ) ); $i++ ) {
-				$shopify_order = $response_data->orders[ $i ];
+			foreach ( $response_data->orders as $shopify_order ) {
 
-				if ( in_array( $shopify_order->id, $exclude ) ) {
+				if ( in_array( $shopify_order->id, $exclude, true ) ) {
 					WP_CLI::line( sprintf( 'Order %s is excluded. Skipping...', $shopify_order->order_number ) );
 					continue;
 				}
@@ -69,7 +71,7 @@ class Migrator_CLI_Orders {
 						$shopify_order->shipping_address->phone = '9999999999';
 					}
 
-					if ( isset( $shopify_order->billing_address->phone) ) {
+					if ( isset( $shopify_order->billing_address->phone ) ) {
 						$shopify_order->billing_address->phone = '9999999999';
 					}
 				}
@@ -93,12 +95,13 @@ class Migrator_CLI_Orders {
 			WP_CLI::line( '===============================' );
 
 			$next_link = Migrator_CLI_Utils::get_rest_next_link( $response );
-			if ( $next_link && $limit > $perpage ) {
+			$limit    -= $perpage;
+
+			if ( $next_link && $limit > 0 ) {
 				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
 				WP_CLI::line( 'Next: ' . $next_link );
-				$limit -= $perpage;
 			}
-		} while ( $next_link );
+		} while ( $next_link && $limit > 0 );
 
 		WP_CLI::success( 'All orders have been processed.' );
 
@@ -173,14 +176,14 @@ class Migrator_CLI_Orders {
 			if ( 'test' === $mode ) {
 				$shopify_order->email .= '.masked';
 			}
-			$this->create_or_assign_customer( $order, $shopify_order, $mode );
+			$this->create_or_assign_customer( $order, $shopify_order );
 		} else {
 			$this->set_placeholder_billing_email( $order );
 		}
 
 		// Tax must be processed before line items.
 		$this->process_tax_lines( $order, $shopify_order );
-		$this->maybe_remove_orphan_items( $order, $shopify_order );
+		$this->maybe_remove_orphan_items( $order );
 		$this->process_line_items( $order, $shopify_order );
 		$this->process_shipping_lines( $order, $shopify_order );
 		$this->process_discount_lines( $order, $shopify_order );
@@ -283,7 +286,7 @@ class Migrator_CLI_Orders {
 		$order->save();
 	}
 
-	private function create_or_assign_customer( $order, $shopify_order, $mode = 'test' ) {
+	private function create_or_assign_customer( $order, $shopify_order ) {
 
 		// Check if the customer exists in WooCommerce.
 		$customer = get_user_by( 'email', $shopify_order->email );
@@ -376,13 +379,13 @@ class Migrator_CLI_Orders {
 		$order->save();
 	}
 
-	private function maybe_remove_orphan_items( $order, $shopify_order ) {
+	private function maybe_remove_orphan_items( $order ) {
 		if ( ! isset( $this->assoc_args['remove-orphans'] ) ) {
 			return;
 		}
 
 		foreach ( $order->get_items( array( 'line_item', 'shipping' ) ) as $item ) {
-			if ( ! in_array( $item->get_id(), $this->order_items_mapping ) ) {
+			if ( ! in_array( $item->get_id(), $this->order_items_mapping, true ) ) {
 				WP_CLI::line( sprintf( 'Removing orphan item %d', $item->get_id() ) );
 				$order->remove_item( $item->get_id() );
 			}
@@ -459,7 +462,7 @@ class Migrator_CLI_Orders {
 		foreach ( $shopify_order->discount_applications as $discount ) {
 			$item = new WC_Order_Item_Coupon();
 			$item->set_discount( $discount->value );
-			if ( $discount->type === 'discount_code' ) {
+			if ( 'discount_code' === $discount->type ) {
 				$item->set_code( $discount->code );
 			} else {
 				$item->set_code( $discount->title );
@@ -531,7 +534,7 @@ class Migrator_CLI_Orders {
 
 			$refund_total = 0;
 			foreach ( $shopify_refund->transactions as $transaction ) {
-				if ( $transaction->status === 'success' ) {
+				if ( 'success' === $transaction->status ) {
 					$refund_total += $transaction->amount;
 				}
 			}
@@ -587,7 +590,7 @@ class Migrator_CLI_Orders {
 			if ( count( $_products ) === 1 ) {
 				$product_id = $_products[0]->get_id();
 				if ( $_products[0]->is_type( 'variable' ) ) {
-					$migration_data = $_products[0]->get_meta( '_migration_data', true ) ?: array();
+					$migration_data = $_products[0]->get_meta( '_migration_data', true ) ? $_products[0]->get_meta( '_migration_data', true ) : array();
 					if ( isset( $migration_data['variations_mapping'][ $line_item->variant_id ] ) ) {
 						$variation_id = $migration_data['variations_mapping'][ $line_item->variant_id ];
 					}
