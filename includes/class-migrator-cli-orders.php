@@ -187,9 +187,7 @@ class Migrator_CLI_Orders {
 		$this->process_line_items( $order, $shopify_order );
 		$this->process_shipping_lines( $order, $shopify_order );
 		$this->process_discount_lines( $order, $shopify_order );
-
 		$this->process_shipment_tracking( $order, $shopify_order );
-
 		$this->process_payment_data( $order, $shopify_order );
 
 		$order->update_meta_data( '_order_items_mapping', $this->order_items_mapping );
@@ -626,9 +624,9 @@ class Migrator_CLI_Orders {
 	}
 
 	private function process_payment_data( $order, $shopify_order ) {
-		$response = Migrator_CLI_Utils::rest_request('orders/' . $shopify_order->id . '/transactions.json');
+		$response     = Migrator_CLI_Utils::rest_request( 'orders/' . $shopify_order->id . '/transactions.json' );
 		$transactions = json_decode( wp_remote_retrieve_body( $response ) );
-		$transaction = $this->get_capture_transaction( $transactions->transactions );
+		$transaction  = $this->get_capture_transaction( $transactions->transactions );
 
 		if ( ! $transaction ) {
 			WP_CLI::line( WP_CLI::colorize( ' %rCapture transaction not found' ) );
@@ -641,6 +639,10 @@ class Migrator_CLI_Orders {
 				$order->update_meta_data( '_original_payment_method_id', $transaction->receipt->payment_method );
 				$order->update_meta_data( '_original_payment_last_4', substr( $transaction->payment_details->credit_card_number, -4 ) );
 				break;
+				// "paypal" not "PayPal" because they are two different gateways and return different data.
+//			case 'paypal':
+//
+//				break;
 			default:
 				WP_CLI::line( WP_CLI::colorize( ' %rUnkown payment gateway: ' . $transaction->gateway ) );
 		}
