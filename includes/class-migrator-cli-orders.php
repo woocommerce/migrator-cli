@@ -639,10 +639,6 @@ class Migrator_CLI_Orders {
 				$order->update_meta_data( '_original_payment_method_id', $transaction->receipt->payment_method );
 				$order->update_meta_data( '_original_payment_last_4', substr( $transaction->payment_details->credit_card_number, -4 ) );
 				break;
-				// "paypal" not "PayPal" because they are two different gateways and return different data.
-			//          case 'paypal':
-			//
-			//              break;
 			default:
 				WP_CLI::line( WP_CLI::colorize( ' %rUnkown payment gateway:%n ' ) . $transaction->gateway );
 		}
