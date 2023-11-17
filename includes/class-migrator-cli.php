@@ -164,9 +164,27 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * @when after_wp_load
 	 */
 	public function skio_subscriptions( $args, $assoc_args ) {
-		$this->assoc_args = $assoc_args;
-
 		$subscriptions = new Migrator_CLI_Subscriptions();
 		$subscriptions->import( $assoc_args );
+	}
+
+	/**
+	 * Reads the stripe csv created after the PAN import and saves info about
+	 * the original `cus_` and `pm_`s to the customer and payment tokens.
+	 *
+	 * ## Options
+	 *
+	 * [--migration_file]
+	 * : The csv file stripe created containing the mapping between old and data
+	 *
+	 * Example:
+	 *
+	 * wp migrator add_woopayments_migration_data --migration_file=<absolute_path>
+	 *
+	 * @when after_wp_load
+	 */
+	public function add_woopayments_migration_data( $args, $assoc_args ) {
+		$payment_methods = new Migrator_Cli_Payment_Methods();
+		$payment_methods->woopayments( $assoc_args );
 	}
 }

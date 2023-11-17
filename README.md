@@ -63,7 +63,7 @@
     Remove orphans order items
 
   Example:
-  wp migrator products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU_*"
+  wp migrator products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU"
 ```
 
 ```
@@ -113,7 +113,7 @@
 ```
 
 ```
-  wp migrator skio_subscriptions [--subscriptions_export_file] [--orders_export_file ]
+  wp migrator skio_subscriptions [--subscriptions_export_file] [--orders_export_file]
 
   The json files can downloaded from the Skio dashboard at https://dashboard.skio.com/subscriptions/export 
 
@@ -124,4 +124,18 @@
 
   [--orders_export_file]
     The orders json file exported from Skio dashboard
+```
+
+
+```
+  wp migrator add_woopayments_migration_data [--migration_file]
+
+  OPTIONS
+
+  [--migration_file]
+  : The csv file stripe created containing the mapping between old and new data
+ 
+  Example:
+ 
+  wp migrator add_woopayments_migration_data --migration_file=<absolute_path>	 
 ```
