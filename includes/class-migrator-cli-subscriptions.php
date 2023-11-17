@@ -7,7 +7,7 @@ class Migrator_CLI_Subscriptions {
 			Migrator_CLI_Utils::health_check();
 
 			if ( ! isset( $assoc_args['subscriptions_export_file'] ) || ! isset( $assoc_args['orders_export_file'] ) ) {
-				WP_CLI::line( WP_CLI::colorize( '%RExport Files not provided. Go to Skio dashboard > Export and export both subscriptions and orders. Then pass the file path to --subscriptions_export_file and --orders_export_file args' ) );
+				WP_CLI::line( WP_CLI::colorize( '%RExport Files not provided. Go to Skio dashboard > Export and export both subscriptions and orders. Then pass the file path to --subscriptions_export_file and --orders_export_file args%n' ) );
 				return;
 			}
 
@@ -24,7 +24,7 @@ class Migrator_CLI_Subscriptions {
 
 			Migrator_CLI_Utils::enable_sequential_orders();
 		} catch ( \Exception $e ) {
-			WP_CLI::line( WP_CLI::colorize( ' %rError: ' . $e->getMessage() ) );
+			WP_CLI::line( WP_CLI::colorize( ' %rError:%n ' . $e->getMessage() ) );
 		}
 
 		WP_CLI::line( WP_CLI::colorize( '%GDone%n' ) );
@@ -42,7 +42,7 @@ class Migrator_CLI_Subscriptions {
 
 	private function get_data_from_file( $file ) {
 		if ( ! is_file( $file ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%RFile not found: ' . $file ) );
+			WP_CLI::line( WP_CLI::colorize( '%RFile not found:%n ' . $file ) );
 			die();
 		}
 
@@ -272,7 +272,7 @@ class Migrator_CLI_Subscriptions {
 		switch ( $latest_order->get_meta( '_original_payment_gateway' ) ) {
 			case 'shopify_payments':
 				if ( (int) $latest_order->get_meta( '_original_payment_last_4' ) !== (int) $skio_subscription['paymentMethodLastDigits'] ) {
-					WP_CLI::line( WP_CLI::colorize( '%RMissmatch in subscription payment method last 4' ) );
+					WP_CLI::line( WP_CLI::colorize( '%RMissmatch in subscription payment method last 4%n' ) );
 					return;
 				}
 
@@ -281,7 +281,7 @@ class Migrator_CLI_Subscriptions {
 				$subscription->update_meta_data( '_original_payment_last_4', $latest_order->get_meta( '_original_payment_last_4' ) );
 				break;
 			default:
-				WP_CLI::line( WP_CLI::colorize( '%RUnknown payment gateway' ) );
+				WP_CLI::line( WP_CLI::colorize( '%RUnknown payment gateway%n' ) );
 		}
 	}
 }
