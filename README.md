@@ -63,7 +63,7 @@
     Remove orphans order items
 
   Example:
-  wp migrator products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU"
+  wp migrator products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU_*"
 ```
 
 ```
