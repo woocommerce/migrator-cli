@@ -6,12 +6,12 @@ class Migrator_CLI_Subscriptions {
 		try {
 			Migrator_CLI_Utils::health_check();
 
-			if ( !isset( $assoc_args['subscriptions_export_file'] ) || !isset( $assoc_args['orders_export_file'] ) ) {
+			if ( ! isset( $assoc_args['subscriptions_export_file'] ) || ! isset( $assoc_args['orders_export_file'] ) ) {
 				WP_CLI::line( WP_CLI::colorize( '%RExport Files not provided. Go to Skio dashboard > Export and export both subscriptions and orders. Then pass the file path to --subscriptions_export_file and --orders_export_file args' ) );
 				return;
 			}
 
-			$skio_orders = $this->get_data_from_file( $assoc_args['orders_export_file'] );
+			$skio_orders        = $this->get_data_from_file( $assoc_args['orders_export_file'] );
 			$skio_subscriptions = $this->get_data_from_file( $assoc_args['subscriptions_export_file'] );
 
 			Migrator_CLI_Utils::disable_sequential_orders();
@@ -40,14 +40,13 @@ class Migrator_CLI_Subscriptions {
 		$subscription->add_item( $new_item );
 	}
 
-	private function get_data_from_file( $file )
-	{
+	private function get_data_from_file( $file ) {
 		if ( ! is_file( $file ) ) {
 			WP_CLI::line( WP_CLI::colorize( '%RFile not found: ' . $file ) );
 			die();
 		}
 
-		return json_decode(file_get_contents( $file ), true);
+		return wp_json_file_decode( $file, array( 'associative' => true ) );
 	}
 
 	private function add_subscription_id_to_orders( $skio_orders ) {
@@ -55,10 +54,10 @@ class Migrator_CLI_Subscriptions {
 			WP_CLI::line( 'Processing order: ' . $shopify_order['orderPlatformNumber'] );
 
 			$args = array(
-				'meta_key' => '_order_number',
-				'meta_value' => $shopify_order['orderPlatformNumber'],
+				'meta_key'     => '_order_number',
+				'meta_value'   => $shopify_order['orderPlatformNumber'],
 				'meta_compare' => '=',
-				'numberposts' => 1,
+				'numberposts'  => 1,
 			);
 
 			$skio_orders = wc_get_orders( $args );
@@ -81,12 +80,12 @@ class Migrator_CLI_Subscriptions {
 
 			// Get all the orders for that subscription.
 			$args = array(
-				'meta_key' => '_skio_subscription_id',
-				'meta_value' => $skio_subscription['subscriptionId'],
+				'meta_key'     => '_skio_subscription_id',
+				'meta_value'   => $skio_subscription['subscriptionId'],
 				'meta_compare' => '=',
-				'numberposts' => -1,
-				'orderby' => 'date_created',
-				'order' => 'ASC',
+				'numberposts'  => -1,
+				'orderby'      => 'date_created',
+				'order'        => 'ASC',
 			);
 
 			$existing_orders = wc_get_orders( $args );
@@ -117,7 +116,6 @@ class Migrator_CLI_Subscriptions {
 			$subscription->set_payment_method_title( $latest_order->get_payment_method_title() );
 			$subscription->set_shipping_total( $latest_order->get_shipping_total() );
 
-
 			$subscription->add_meta_data( '_payment_method_id', $latest_order->get_meta( '_payment_method_id' ) );
 			$subscription->add_meta_data( '_payment_tokens', $latest_order->get_meta( '_payment_tokens' ) );
 			$subscription->add_meta_data( '_skio_subscription_id', $skio_subscription['subscriptionId'] );
@@ -132,12 +130,12 @@ class Migrator_CLI_Subscriptions {
 
 	private function get_or_create_subscription( $skio_subscription, $oldest_order ) {
 		$args = array(
-			'type' => 'shop_subscription',
-			'meta_key' => '_skio_subscription_id',
-			'meta_value' => $skio_subscription['subscriptionId'],
+			'type'         => 'shop_subscription',
+			'meta_key'     => '_skio_subscription_id',
+			'meta_value'   => $skio_subscription['subscriptionId'],
 			'meta_compare' => '=',
-			'numberposts' => 1,
-			'status' => 'any',
+			'numberposts'  => 1,
+			'status'       => 'any',
 		);
 
 		$existing_subscriptions = wcs_get_orders_with_meta_query( $args );
@@ -146,21 +144,23 @@ class Migrator_CLI_Subscriptions {
 			/** @var WC_Subscription $subscription */
 			$subscription = end( $existing_subscriptions );
 
-			$subscription->update_dates( array(
-				'cancelled' => 0,
-				'end' => 0,
-				'next_payment' => 0,
-				'start' => 0,
-				'date_created' => 0,
-				'date_modified' => 0,
-				'date_paid' => 0,
-				'date_completed' => 0,
-				'last_order_date_created' => 0,
-				'trial_end' => 0,
-				'last_order_date_paid' => 0,
-				'last_order_date_completed' => 0,
-				'payment_retry' => 0,
-			) );
+			$subscription->update_dates(
+				array(
+					'cancelled'                 => 0,
+					'end'                       => 0,
+					'next_payment'              => 0,
+					'start'                     => 0,
+					'date_created'              => 0,
+					'date_modified'             => 0,
+					'date_paid'                 => 0,
+					'date_completed'            => 0,
+					'last_order_date_created'   => 0,
+					'trial_end'                 => 0,
+					'last_order_date_paid'      => 0,
+					'last_order_date_completed' => 0,
+					'payment_retry'             => 0,
+				)
+			);
 
 			$subscription->save();
 
@@ -173,12 +173,12 @@ class Migrator_CLI_Subscriptions {
 
 			$subscription = wcs_create_subscription(
 				array(
-					'status' => '',
-					'order_id' => $oldest_order->get_id(),
-					'customer_id' => $oldest_order->get_customer_id(),
-					'date_created' => $create_date,
+					'status'           => '',
+					'order_id'         => $oldest_order->get_id(),
+					'customer_id'      => $oldest_order->get_customer_id(),
+					'date_created'     => $create_date,
 					'billing_interval' => $skio_subscription['billingPolicyIntervalCount'],
-					'billing_period' => mb_strtolower( $skio_subscription['billingPolicyInterval'] ),
+					'billing_period'   => mb_strtolower( $skio_subscription['billingPolicyInterval'] ),
 				)
 			);
 		}
@@ -224,13 +224,12 @@ class Migrator_CLI_Subscriptions {
 		$subscription->set_shipping_postcode( $latest_order->get_shipping_postcode() );
 		$subscription->set_shipping_country( $latest_order->get_shipping_country() );
 		$subscription->set_shipping_phone( $latest_order->get_shipping_phone() );
-
 	}
 
 	private function attatch_orders( $subscription, $existing_orders, $oldest_order ) {
 		foreach ( $existing_orders as $order ) {
 			// Prevents adding the oldest order twice.
-			if ( $order->get_id() == $oldest_order->get_id() ) {
+			if ( $order->get_id() === $oldest_order->get_id() ) {
 				continue;
 			}
 
@@ -240,7 +239,7 @@ class Migrator_CLI_Subscriptions {
 
 	private function set_subscription_status( $subscription, $skio_subscription ) {
 
-		if ( !in_array( $skio_subscription['status'], array( 'ACTIVE', 'CANCELLED' ), true) ) {
+		if ( ! in_array( $skio_subscription['status'], array( 'ACTIVE', 'CANCELLED' ), true ) ) {
 			WP_CLI::line( 'Unknown subscription status: ' . $skio_subscription['status'] );
 		}
 
@@ -249,18 +248,22 @@ class Migrator_CLI_Subscriptions {
 		if ( 'ACTIVE' === $skio_subscription['status'] && isset( $skio_subscription['nextBillingDate'] ) ) {
 			$next_payment = date_create( $skio_subscription['nextBillingDate'] );
 			$next_payment = date_format( $next_payment, 'Y-m-d H:i:s' );
-			$subscription->update_dates( array(
-				'next_payment' => $next_payment,
-			) );
+			$subscription->update_dates(
+				array(
+					'next_payment' => $next_payment,
+				)
+			);
 		}
 
 		if ( 'CANCELLED' === $skio_subscription['status'] && isset( $skio_subscription['cancelledAt'] ) ) {
 			$cancelled_date = new DateTime( $skio_subscription['cancelledAt'] );
 			$cancelled_date = date_format( $cancelled_date, 'Y-m-d H:i:s' );
-			$subscription->update_dates( array(
-				'cancelled' => $cancelled_date,
-				'end' => $cancelled_date
-			) );
+			$subscription->update_dates(
+				array(
+					'cancelled' => $cancelled_date,
+					'end'       => $cancelled_date,
+				)
+			);
 		}
 	}
 }
