@@ -37,6 +37,7 @@ class Migrator_CLI_Payment_Methods {
 				continue;
 			}
 
+			WP_CLI::line( 'Processing customer : ' . $stripe_customer['email'] . '(' . $user->ID . ')' );
 			update_user_option( $user->ID, self::get_customer_id_option(), $stripe_customer['id'] );
 			$this->import_payment_methods( $stripe_customer, $user );
 		}
@@ -96,8 +97,11 @@ class Migrator_CLI_Payment_Methods {
 			die();
 		}
 
+		WP_CLI::line( 'Updating customers' );
 		$this->add_pan_import_data( $assoc_args['migration_file'] );
+		WP_CLI::line( 'Updating orders' );
 		$this->update_orders_or_subscriptions( 'shop_order' );
+		WP_CLI::line( 'Updating subscriptions' );
 		$this->update_orders_or_subscriptions( 'shop_subscription' );
 	}
 
@@ -247,12 +251,17 @@ class Migrator_CLI_Payment_Methods {
 
 			/** @var WC_Order|WC_Subscription $order */
 			foreach ( $orders as $order ) {
+				WP_CLI::line( 'Processing ' . $type . ': ' . $order->get_id() );
+
 				switch ( $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) ) {
 					case 'shopify_payments':
 						$this->process_shopify_payments( $order );
 						break;
+					case null:
+						WP_CLI::line( WP_CLI::colorize( ' %RPayment gateway not set%n ' ) );
+						break;
 					default:
-						WP_CLI::line( WP_CLI::colorize( ' %RUnkown payment gateway:%n ' ) . $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
+						WP_CLI::line( WP_CLI::colorize( '%RUnkown payment gateway:%n ' ) . $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
 				}
 			}
 
