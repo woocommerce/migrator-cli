@@ -635,9 +635,9 @@ class Migrator_CLI_Orders {
 
 		switch ( $transaction->gateway ) {
 			case 'shopify_payments':
-				$order->update_meta_data( '_original_payment_gateway', $transaction->gateway );
-				$order->update_meta_data( '_original_payment_method_id', $transaction->receipt->payment_method );
-				$order->update_meta_data( '_original_payment_last_4', substr( $transaction->payment_details->credit_card_number, -4 ) );
+				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $transaction->gateway );
+				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->payment_method );
+				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4, substr( $transaction->payment_details->credit_card_number, -4 ) );
 				break;
 			default:
 				WP_CLI::line( WP_CLI::colorize( ' %rUnkown payment gateway:%n ' ) . $transaction->gateway );

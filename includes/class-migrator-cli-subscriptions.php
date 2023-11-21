@@ -69,7 +69,7 @@ class Migrator_CLI_Subscriptions {
 
 			/** @var WC_Order $shopify_order */
 			$order = reset( $skio_orders );
-			$order->add_meta_data( '_skio_subscription_id', $shopify_order['subscriptionId'] );
+			$order->update_meta_data( '_skio_subscription_id', $shopify_order['subscriptionId'] );
 			$order->save_meta_data();
 		}
 	}
@@ -116,9 +116,7 @@ class Migrator_CLI_Subscriptions {
 			$subscription->set_payment_method_title( $latest_order->get_payment_method_title() );
 			$subscription->set_shipping_total( $latest_order->get_shipping_total() );
 
-			$subscription->add_meta_data( '_payment_method_id', $latest_order->get_meta( '_payment_method_id' ) );
-			$subscription->add_meta_data( '_payment_tokens', $latest_order->get_meta( '_payment_tokens' ) );
-			$subscription->add_meta_data( '_skio_subscription_id', $skio_subscription['subscriptionId'] );
+			$subscription->update_meta_data( '_skio_subscription_id', $skio_subscription['subscriptionId'] );
 
 			$this->attatch_orders( $subscription, $existing_orders, $oldest_order );
 			$this->set_subscription_status( $subscription, $skio_subscription );
@@ -269,16 +267,20 @@ class Migrator_CLI_Subscriptions {
 	}
 
 	private function process_payment_method( WC_Subscription $subscription, $skio_subscription, WC_Order $latest_order ) {
-		switch ( $latest_order->get_meta( '_original_payment_gateway' ) ) {
+
+		$subscription->update_meta_data( '_payment_method_id', $latest_order->get_meta( '_payment_method_id' ) );
+		$subscription->update_meta_data( '_payment_tokens', $latest_order->get_meta( '_payment_tokens' ) );
+
+		switch ( $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY ) ) {
 			case 'shopify_payments':
-				if ( (int) $latest_order->get_meta( '_original_payment_last_4' ) !== (int) $skio_subscription['paymentMethodLastDigits'] ) {
+				if ( (int) $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4 ) !== (int) $skio_subscription['paymentMethodLastDigits'] ) {
 					WP_CLI::line( WP_CLI::colorize( '%RMissmatch in subscription payment method last 4%n' ) );
 					return;
 				}
 
-				$subscription->update_meta_data( '_original_payment_gateway', $latest_order->get_meta( '_original_payment_gateway' ) );
-				$subscription->update_meta_data( '_original_payment_method_id', $latest_order->get_meta( '_original_payment_method_id' ) );
-				$subscription->update_meta_data( '_original_payment_last_4', $latest_order->get_meta( '_original_payment_last_4' ) );
+				$subscription->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
+				$subscription->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY ) );
+				$subscription->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4, $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4 ) );
 				break;
 			default:
 				WP_CLI::line( WP_CLI::colorize( '%RUnknown payment gateway%n' ) );
