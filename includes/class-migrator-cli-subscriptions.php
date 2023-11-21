@@ -266,6 +266,15 @@ class Migrator_CLI_Subscriptions {
 		}
 	}
 
+	/**
+	 * Saves the old payment method data into the subscription meta table
+	 * so it can be used during the mapping update by
+	 * Migrator_CLI_Payment_Methods::update_orders_and_subscriptions_payment_methods.
+	 *
+	 * @param WC_Subscription $subscription the subscription to be updated.
+	 * @param array $skio_subscription the skio subscription data.
+	 * @param WC_Order $latest_order the last order to be used to extract data from.
+	 */
 	private function process_payment_method( WC_Subscription $subscription, $skio_subscription, WC_Order $latest_order ) {
 
 		$subscription->update_meta_data( '_payment_method_id', $latest_order->get_meta( '_payment_method_id' ) );

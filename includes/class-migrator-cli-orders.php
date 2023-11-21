@@ -623,6 +623,14 @@ class Migrator_CLI_Orders {
 		$line_item->set_taxes( $taxes );
 	}
 
+	/**
+	 * Saves the old payment method data into the subscription meta table
+	 *  so it can be used during the mapping update by
+	 *  Migrator_CLI_Payment_Methods::update_orders_and_subscriptions_payment_methods.
+	 *
+	 * @param WC_Order $order the order to be updated.
+	 * @param array $shopify_order the shopify order data.
+	 */
 	private function process_payment_data( $order, $shopify_order ) {
 		$response     = Migrator_CLI_Utils::rest_request( 'orders/' . $shopify_order->id . '/transactions.json' );
 		$transactions = json_decode( wp_remote_retrieve_body( $response ) );

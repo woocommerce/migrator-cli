@@ -261,6 +261,7 @@ class Migrator_CLI_Payment_Methods {
 	}
 
 	/**
+	 * Returns the meta_key where the stripe customer_id is stored without the wp_ at the beginning.
 	 * Extracted from https://github.com/Automattic/woocommerce-payments/blob/92525c2a637bf592ec412bb0a979ab91862575d1/includes/class-wc-payments-customer-service.php#L407-L416
 	 * @return string
 	 * @throws Exception
