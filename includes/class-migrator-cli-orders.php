@@ -652,9 +652,15 @@ class Migrator_CLI_Orders {
 		}
 	}
 
+	/**
+	 * Searches for the capture transaction in the transactions array.
+	 *
+	 * @param array $transactions of shopify transactions.
+	 * @return array|void
+	 */
 	private function get_capture_transaction( $transactions ) {
 		foreach ( $transactions as $transaction ) {
-			if ( 'capture' === $transaction->kind ) {
+			if ( 'capture' === $transaction->kind && 'failure' !== $transaction->status ) {
 				return $transaction;
 			}
 		}
