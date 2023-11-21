@@ -16,7 +16,7 @@ class Migrator_CLI_Payment_Methods {
 		Migrator_CLI_Utils::health_check();
 
 		if ( ! class_exists( 'WC_Payments' ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%RWooPayments is not active' ) );
+			WP_CLI::line( WP_CLI::colorize( '%RWooPayments is not active%n' ) );
 			die();
 		}
 
@@ -33,7 +33,7 @@ class Migrator_CLI_Payment_Methods {
 
 			$user = get_user_by( 'email', $stripe_customer['email'] );
 			if ( ! $user || is_wp_error( $user ) || 0 === $user->ID ) {
-				WP_CLI::line( WP_CLI::colorize( '%RCustomer not found: ' . $stripe_customer['email'] ) );
+				WP_CLI::line( WP_CLI::colorize( '%RCustomer not found:%n ' . $stripe_customer['email'] ) );
 				continue;
 			}
 
@@ -156,7 +156,7 @@ class Migrator_CLI_Payment_Methods {
 
 		foreach ( $tokens as $token ) {
 			if ( $token->get_meta( self::ORIGINAL_PAYMENT_METHOD_ID_KEY ) === $old_payment_method_id ) {
-				if ( $old_payment_method_last_4 === $token->get_meta( 'last4' ) ) {
+				if ( (int) $old_payment_method_last_4 === (int) $token->get_meta( 'last4' ) ) {
 					return $token;
 				} else {
 					WP_CLI::line( WP_CLI::colorize( '%RMissmatch Payment Token last 4:%n' ) . $old_payment_method_id );
