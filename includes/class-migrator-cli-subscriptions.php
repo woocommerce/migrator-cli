@@ -24,7 +24,7 @@ class Migrator_CLI_Subscriptions {
 
 			Migrator_CLI_Utils::enable_sequential_orders();
 		} catch ( \Exception $e ) {
-			WP_CLI::line( WP_CLI::colorize( ' %rError:%n ' . $e->getMessage() ) );
+			WP_CLI::line( WP_CLI::colorize( ' %RError:%n ' . $e->getMessage() ) );
 		}
 
 		WP_CLI::line( WP_CLI::colorize( '%GDone%n' ) );

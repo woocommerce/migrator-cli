@@ -98,7 +98,7 @@ class Migrator_CLI_Orders {
 			$limit    -= $perpage;
 
 			if ( $next_link && $limit > 0 ) {
-				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.%n' );
+				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
 				WP_CLI::line( 'Next: ' . $next_link );
 			}
 		} while ( $next_link && $limit > 0 );
@@ -629,7 +629,7 @@ class Migrator_CLI_Orders {
 		$transaction  = $this->get_capture_transaction( $transactions->transactions );
 
 		if ( ! $transaction ) {
-			WP_CLI::line( WP_CLI::colorize( ' %rCapture transaction not found%n' ) );
+			WP_CLI::line( WP_CLI::colorize( ' %RCapture transaction not found%n' ) );
 			return;
 		}
 
@@ -640,7 +640,7 @@ class Migrator_CLI_Orders {
 				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4, substr( $transaction->payment_details->credit_card_number, -4 ) );
 				break;
 			default:
-				WP_CLI::line( WP_CLI::colorize( ' %rUnkown payment gateway:%n ' ) . $transaction->gateway );
+				WP_CLI::line( WP_CLI::colorize( ' %RUnkown payment gateway:%n ' ) . $transaction->gateway );
 		}
 	}
 

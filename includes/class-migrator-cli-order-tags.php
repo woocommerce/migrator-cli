@@ -99,7 +99,7 @@ class Migrator_CLI_Order_Tags {
 
 		$next_link = Migrator_CLI_Utils::get_rest_next_link( $response );
 		if ( $next_link && $limit > $perpage ) {
-			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.%n' );
+			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
 			$this->fix_missing_order_tags(
 				array(
 					'next'  => $next_link,

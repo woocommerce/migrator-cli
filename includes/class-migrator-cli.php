@@ -204,6 +204,6 @@ class Migrator_CLI extends WP_CLI_Command {
 	 */
 	public function add_woopayments_migration_data( $args, $assoc_args ) {
 		$payment_methods = new Migrator_Cli_Payment_Methods();
-		$payment_methods->woopayments( $assoc_args );
+		$payment_methods->update_orders_and_subscriptions_payment_methods( $assoc_args );
 	}
 }
