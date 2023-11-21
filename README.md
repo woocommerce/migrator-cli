@@ -125,3 +125,7 @@
   [--orders_export_file]
     The orders json file exported from Skio dashboard
 ```
+
+```
+wp import_stripe_data_into_woopayments
+```

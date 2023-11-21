@@ -20,6 +20,7 @@ require_once __DIR__ . '/includes/class-migrator-cli.php';
 require_once __DIR__ . '/includes/class-migrator-cli-utils.php';
 require_once __DIR__ . '/includes/class-migrator-cli-order-tags.php';
 require_once __DIR__ . '/includes/class-migrator-cli-orders.php';
+require_once __DIR__ . '/includes/class-migrator-cli-payment-methods.php';
 require_once __DIR__ . '/includes/class-migrator-cli-products.php';
 require_once __DIR__ . '/includes/class-migrator-cli-subscriptions.php';
 

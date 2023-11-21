@@ -169,4 +169,23 @@ class Migrator_CLI extends WP_CLI_Command {
 		$subscriptions = new Migrator_CLI_Subscriptions();
 		$subscriptions->import( $assoc_args );
 	}
+
+	/**
+	 * Import the customer data from Stripe into WooPayments.
+	 * This function uses the WooPayments plugin connection
+	 * to the WooPayments server.
+	 * So WooPayments needs to be active and linked to the server.
+	 *
+	 * It will not create the site customer it will just update
+	 * one that matches the email in Stripe.
+	 *
+	 * Example:
+	 * wp import_stripe_data_into_woopayments
+	 *
+	 * @when after_wp_load
+	 */
+	public function import_stripe_data_into_woopayments() {
+		$payment_methods = new Migrator_CLI_Payment_Methods();
+		$payment_methods->import_stripe_data_into_woopayments();
+	}
 }
