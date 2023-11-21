@@ -50,12 +50,12 @@ class Migrator_CLI_Subscriptions {
 	}
 
 	private function add_subscription_id_to_orders( $skio_orders ) {
-		foreach ( $skio_orders as $shopify_order ) {
-			WP_CLI::line( 'Processing order: ' . $shopify_order['orderPlatformNumber'] );
+		foreach ( $skio_orders as $skio_order ) {
+			WP_CLI::line( 'Processing order: ' . $skio_order['orderPlatformNumber'] );
 
 			$args = array(
 				'meta_key'     => '_order_number',
-				'meta_value'   => $shopify_order['orderPlatformNumber'],
+				'meta_value'   => $skio_order['orderPlatformNumber'],
 				'meta_compare' => '=',
 				'numberposts'  => 1,
 			);
@@ -63,13 +63,13 @@ class Migrator_CLI_Subscriptions {
 			$skio_orders = wc_get_orders( $args );
 
 			if ( ! $skio_orders ) {
-				WP_CLI::line( 'Woo Order not found for Shopify Order: ' . $shopify_order['orderPlatformNumber'] );
+				WP_CLI::line( 'Woo Order not found for Shopify Order: ' . $skio_order['orderPlatformNumber'] );
 				continue;
 			}
 
-			/** @var WC_Order $shopify_order */
+			/** @var WC_Order $skio_order */
 			$order = reset( $skio_orders );
-			$order->update_meta_data( '_skio_subscription_id', $shopify_order['subscriptionId'] );
+			$order->update_meta_data( '_skio_subscription_id', $skio_order['subscriptionId'] );
 			$order->save_meta_data();
 		}
 	}
