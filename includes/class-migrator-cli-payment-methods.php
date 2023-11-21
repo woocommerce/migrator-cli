@@ -22,8 +22,8 @@ class Migrator_Cli_Payment_Methods {
 			die();
 		}
 
-//		$this->add_pan_import_data( $assoc_args['migration_file'] );
-//		$this->update_orders_or_subscriptions( 'shop_order' );
+		$this->add_pan_import_data( $assoc_args['migration_file'] );
+		$this->update_orders_or_subscriptions( 'shop_order' );
 		$this->update_orders_or_subscriptions( 'shop_subscription' );
 	}
 
@@ -61,7 +61,7 @@ class Migrator_Cli_Payment_Methods {
 				continue;
 			}
 
-			$token->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $data[ self::OLD_SOURCE_ID_POS ] );
+			$token->update_meta_data( self::ORIGINAL_PAYMENT_METHOD_ID_KEY, $data[ self::OLD_SOURCE_ID_POS ] );
 			$token->save_meta_data();
 		}
 	}
@@ -87,7 +87,7 @@ class Migrator_Cli_Payment_Methods {
 		$tokens = WC_Payment_Tokens::get_customer_tokens( $user_id );
 
 		foreach ( $tokens as $token ) {
-			if ( $token->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY ) === $old_payment_method_id ) {
+			if ( $token->get_meta( self::ORIGINAL_PAYMENT_METHOD_ID_KEY ) === $old_payment_method_id ) {
 				if ( $old_payment_method_last_4 === $token->get_meta( 'last4' ) ) {
 					return $token;
 				} else {
@@ -119,26 +119,26 @@ class Migrator_Cli_Payment_Methods {
 	}
 
 	private function update_orders_or_subscriptions( $type ) {
-		$page                  = 1;
+		$page = 1;
 
 		do {
 			$orders = wc_get_orders(
 				array(
-					'type' => $type,
+					'type'   => $type,
 					'status' => 'all',
-					'limit' => 100,
-					'paged' => $page,
+					'limit'  => 100,
+					'paged'  => $page,
 				)
 			);
 
 			/** @var WC_Order|WC_Subscription $order */
 			foreach ( $orders as $order ) {
-				switch ( $order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY ) ) {
+				switch ( $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) ) {
 					case 'shopify_payments':
 						$this->process_shopify_payments( $order );
 						break;
 					default:
-						WP_CLI::line( WP_CLI::colorize( ' %rUnkown payment gateway:%n ' ) . $order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
+						WP_CLI::line( WP_CLI::colorize( ' %rUnkown payment gateway:%n ' ) . $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
 				}
 			}
 
@@ -158,8 +158,8 @@ class Migrator_Cli_Payment_Methods {
 	}
 
 	private function process_shopify_payments( WC_Order|WC_Subscription $order ) {
-		$old_payment_method_id     = $order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY );
-		$old_payment_method_last_4 = $order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4 );
+		$old_payment_method_id     = $order->get_meta( self::ORIGINAL_PAYMENT_METHOD_ID_KEY );
+		$old_payment_method_last_4 = $order->get_meta( self::ORIGINAL_PAYMENT_LAST_4 );
 		$customer                  = new WC_Customer( $order->get_customer_id() );
 
 		$token = $this->get_customer_token_by_old_payment_method_id( $order->get_customer_id(), $old_payment_method_id, $old_payment_method_last_4 );
