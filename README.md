@@ -126,6 +126,10 @@
     The orders json file exported from Skio dashboard
 ```
 
+```
+wp import_stripe_data_into_woopayments
+```
+
 
 ```
   wp migrator add_woopayments_migration_data [--migration_file]
