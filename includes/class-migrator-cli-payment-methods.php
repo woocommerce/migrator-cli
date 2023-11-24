@@ -258,7 +258,7 @@ class Migrator_CLI_Payment_Methods {
 						$this->process_shopify_payments( $order );
 						break;
 					case null:
-						WP_CLI::line( WP_CLI::colorize( ' %RPayment gateway not set%n ' ) );
+						WP_CLI::line( WP_CLI::colorize( '%RPayment gateway not set%n ' ) );
 						break;
 					default:
 						WP_CLI::line( WP_CLI::colorize( '%RUnkown payment gateway:%n ' ) . $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) );

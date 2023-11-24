@@ -24,7 +24,7 @@ class Migrator_CLI_Subscriptions {
 
 			Migrator_CLI_Utils::enable_sequential_orders();
 		} catch ( \Exception $e ) {
-			WP_CLI::line( WP_CLI::colorize( ' %RError:%n ' . $e->getMessage() ) );
+			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' . $e->getMessage() ) );
 		}
 
 		WP_CLI::line( WP_CLI::colorize( '%GDone%n' ) );
@@ -280,8 +280,13 @@ class Migrator_CLI_Subscriptions {
 		$subscription->update_meta_data( '_payment_method_id', $latest_order->get_meta( '_payment_method_id' ) );
 		$subscription->update_meta_data( '_payment_tokens', $latest_order->get_meta( '_payment_tokens' ) );
 
+		// Case matters here.
 		switch ( $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY ) ) {
 			case 'shopify_payments':
+				if ( ! class_exists( 'WC_Gateway_PPEC_Plugin' ) ) {
+					WP_CLI::line( WP_CLI::colorize( '%RPayPal Express Plugin not installed. It will be necessary to process payments for this subscription%n' ) );
+				}
+
 				if ( (int) $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4 ) !== (int) $skio_subscription['paymentMethodLastDigits'] ) {
 					WP_CLI::line( WP_CLI::colorize( '%RMissmatch in subscription payment method last 4%n' ) );
 					return;
@@ -290,6 +295,19 @@ class Migrator_CLI_Subscriptions {
 				$subscription->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
 				$subscription->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY ) );
 				$subscription->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4, $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4 ) );
+				break;
+			// 'paypal' not 'PayPal' they are two different gateways.
+			case 'paypal':
+				if ( ! class_exists( 'WC_Gateway_PPEC_Plugin' ) ) {
+					WP_CLI::line( WP_CLI::colorize( '%RPayPal Express Plugin not installed. It will be necessary to process payments for this subscription%n' ) );
+				}
+
+				// Todo: Needs to check if PayPal is active.
+				$subscription->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
+				$subscription->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY ) );
+
+				$subscription->set_payment_method( 'ppec_paypal' );
+				$subscription->update_meta_data( '_ppec_billing_agreement_id', $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY ) );
 				break;
 			default:
 				WP_CLI::line( WP_CLI::colorize( '%RUnknown payment gateway%n' ) );

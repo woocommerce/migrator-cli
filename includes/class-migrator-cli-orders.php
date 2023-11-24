@@ -640,33 +640,40 @@ class Migrator_CLI_Orders {
 			return;
 		}
 
-		$transaction = $this->get_capture_transaction( $transactions->transactions );
+		$transaction = $this->get_transaction_with_payment_method_data( $transactions->transactions );
 
 		if ( ! $transaction ) {
 			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Capture transaction not found. Not going to import the transaction data for this order.' );
 			return;
 		}
 
+		// Case matters here.
 		switch ( $transaction->gateway ) {
 			case 'shopify_payments':
 				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $transaction->gateway );
 				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->payment_method );
 				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4, substr( $transaction->payment_details->credit_card_number, -4 ) );
 				break;
+			// 'paypal' not 'PayPal' they are two different gateways.
+			case 'paypal':
+				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $transaction->gateway );
+				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->billing_agreement_id );
+				break;
 			default:
-				WP_CLI::line( WP_CLI::colorize( ' %RUnkown payment gateway:%n ' ) . $transaction->gateway );
+				WP_CLI::line( WP_CLI::colorize( '%RUnkown payment gateway:%n ' ) . $transaction->gateway );
 		}
 	}
 
 	/**
-	 * Searches for the capture transaction in the transactions array.
+	 * Searches for the first successful transaction with payment method data
+	 * that can be used for subscription renewals in the transactions array.
 	 *
 	 * @param array $transactions of shopify transactions.
 	 * @return array|void
 	 */
-	private function get_capture_transaction( $transactions ) {
+	private function get_transaction_with_payment_method_data( $transactions ) {
 		foreach ( $transactions as $transaction ) {
-			if ( 'capture' === $transaction->kind && 'failure' !== $transaction->status ) {
+			if ( in_array( $transaction->kind, array( 'capture', 'sale' ), true ) && 'failure' !== $transaction->status ) {
 				return $transaction;
 			}
 		}
