@@ -634,10 +634,16 @@ class Migrator_CLI_Orders {
 	private function process_payment_data( $order, $shopify_order ) {
 		$response     = Migrator_CLI_Utils::rest_request( 'orders/' . $shopify_order->id . '/transactions.json' );
 		$transactions = json_decode( wp_remote_retrieve_body( $response ) );
-		$transaction  = $this->get_capture_transaction( $transactions->transactions );
+
+		if ( ! $transactions ) {
+			WP_CLI::line( 'No transactions to import for this order.' );
+			return;
+		}
+
+		$transaction = $this->get_capture_transaction( $transactions->transactions );
 
 		if ( ! $transaction ) {
-			WP_CLI::line( WP_CLI::colorize( ' %RCapture transaction not found%n' ) );
+			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Capture transaction not found. Not going to import the transaction data for this order.' );
 			return;
 		}
 
