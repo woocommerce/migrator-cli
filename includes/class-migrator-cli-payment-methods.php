@@ -284,10 +284,10 @@ class Migrator_CLI_Payment_Methods {
 	/**
 	 * Updates shopify_payments to WooPayments.
 	 *
-	 * @param WC_Order|WC_Subscription $order the order or subscription to be updated
+	 * @param WC_Order $order the order or subscription to be updated
 	 * @throws WC_Data_Exception
 	 */
-	private function process_shopify_payments( WC_Order|WC_Subscription $order ) {
+	private function process_shopify_payments( WC_Order $order ) {
 		$old_payment_method_id     = $order->get_meta( self::ORIGINAL_PAYMENT_METHOD_ID_KEY );
 		$old_payment_method_last_4 = $order->get_meta( self::ORIGINAL_PAYMENT_LAST_4 );
 		$customer                  = new WC_Customer( $order->get_customer_id() );
