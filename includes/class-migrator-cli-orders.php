@@ -6,6 +6,14 @@ class Migrator_CLI_Orders {
 	private $order_items_mapping;
 	private $order_tax_rate_ids_mapping;
 
+	/**
+	 * Copies the orders data from Shopify.
+	 * Will create new customers if they don't exist yet.
+	 * Will save payment data for supported payment providers.
+	 * Products need to be imported before running this function.
+	 *
+	 * @param array $assoc_args ['before'] ['after'] ['limit'] ['perpage'] ['next'] ['status'] ['ids'] ['exclude'] ['no-update'] ['sorting'] ['mode'] ['send-notifications'] ['remove-orphans']
+	 */
 	public function migrate_orders( $assoc_args ) {
 		$this->assoc_args = $assoc_args;
 
@@ -113,6 +121,12 @@ class Migrator_CLI_Orders {
 		Migrator_CLI_Utils::enable_sequential_orders();
 	}
 
+	/**
+	 * Gets the corresponding Woo order using the Shopify order id.
+	 *
+	 * @param object $shopify_order the Shopify order data.
+	 * @return WC_Order|null
+	 */
 	private function get_corresponding_woo_order( $shopify_order ) {
 		$orders = wc_get_orders(
 			array(
@@ -140,6 +154,13 @@ class Migrator_CLI_Orders {
 		return null;
 	}
 
+	/**
+	 * Creates or updates a Woo order with the given Shopify data.
+	 *
+	 * @param object $shopify_order the Shopify order data.
+	 * @param WC_Order|null $woo_order the existing Woo Order to be updated or null to create a new one.
+	 * @param string $mode test or prod. When running in test mode emails and phone numbers will be masked.
+	 */
 	private function create_or_update_woo_order( $shopify_order, $woo_order, $mode = 'test' ) {
 		$order = new WC_Order( $woo_order );
 		$order->save();
@@ -197,6 +218,13 @@ class Migrator_CLI_Orders {
 		$this->process_order_refunds( $order, $shopify_order );
 	}
 
+	/**
+	 * Converts a Shopify order status into a Woo orders status.
+	 *
+	 * @param string $financial_status the Shopify financial status.
+	 * @param string $fulfillment_status the Shopify fulfillment status.
+	 * @return string the Woo equivalent status
+	 */
 	private function get_woo_order_status( $financial_status, $fulfillment_status ) {
 		$financial_mapping = array(
 			'pending'            => 'pending',
@@ -230,6 +258,12 @@ class Migrator_CLI_Orders {
 		return $woo_status;
 	}
 
+	/**
+	 * Imports the order tags and sets them to the order.
+	 *
+	 * @param WC_Order $order the Woo order.
+	 * @param object $shopify_order the Shopify order data.
+	 */
 	private function process_order_tags( $order, $shopify_order ) {
 		if ( ! taxonomy_exists( 'wcot_order_tag' ) ) {
 			return;
@@ -258,6 +292,12 @@ class Migrator_CLI_Orders {
 		}
 	}
 
+	/**
+	 * Process billing and shipping addresses.
+	 *
+	 * @param WC_Order $order the Woo order.
+	 * @param object $shopify_order the Shopify order data.
+	 */
 	private function process_order_addresses( WC_Order $order, $shopify_order ) {
 		// Update order billing address.
 		$order->set_billing_first_name( $shopify_order->billing_address->first_name );
@@ -286,6 +326,14 @@ class Migrator_CLI_Orders {
 		$order->save();
 	}
 
+	/**
+	 * Creates a customer if it does not exist yet and then assign it to the order.
+	 * Will not update the customer if it already exists.
+	 * Will search for the customer by it's email.
+	 *
+	 * @param WC_Order $order the Woo order.
+	 * @param object $shopify_order the Shopify order data.
+	 */
 	private function create_or_assign_customer( $order, $shopify_order ) {
 
 		// Check if the customer exists in WooCommerce.
@@ -342,6 +390,13 @@ class Migrator_CLI_Orders {
 		$order->save();
 	}
 
+	/**
+	 * Sets the placeholder billing email.
+	 * Will use the username to create a @example.com.invalid email.
+	 * Can be used when the Shopify order does not have an email attached to it.
+	 *
+	 * @param WC_Order $order the Woo order.
+	 */
 	private function set_placeholder_billing_email( $order ) {
 		// Create username from first name, last name, and phone number.
 		$username  = $order->get_billing_first_name() ?? $order->get_shipping_first_name();
@@ -361,6 +416,12 @@ class Migrator_CLI_Orders {
 		$order->save();
 	}
 
+	/**
+	 * Process the tax lines.
+	 *
+	 * @param WC_Order $order the Woo order.
+	 * @param object $shopify_order the Shopify order data.
+	 */
 	private function process_tax_lines( WC_Order $order, $shopify_order ) {
 		$order->remove_order_items( 'tax' );
 		$this->order_tax_rate_ids_mapping = array();
@@ -379,6 +440,11 @@ class Migrator_CLI_Orders {
 		$order->save();
 	}
 
+	/**
+	 * Will remove order items that were not added during this execution if the 'remove-orphans' cli arg is set.
+	 *
+	 * @param WC_Order $order the Woo order.
+	 */
 	private function maybe_remove_orphan_items( $order ) {
 		if ( ! isset( $this->assoc_args['remove-orphans'] ) ) {
 			return;
@@ -394,6 +460,12 @@ class Migrator_CLI_Orders {
 		$order->save();
 	}
 
+	/**
+	 * Adds the line items to the Woo order.
+	 *
+	 * @param WC_Order $order the Woo order.
+	 * @param object $shopify_order the Shopify order data.
+	 */
 	private function process_line_items( $order, $shopify_order ) {
 		foreach ( $shopify_order->line_items as $line_item ) {
 			$line_item_id = 0;
@@ -434,6 +506,12 @@ class Migrator_CLI_Orders {
 		$order->save();
 	}
 
+	/**
+	 * Adds the shipping line items to the Woo order.
+	 *
+	 * @param WC_Order $order the Woo order.
+	 * @param object $shopify_order the Shopify order data.
+	 */
 	private function process_shipping_lines( $order, $shopify_order ) {
 		foreach ( $shopify_order->shipping_lines as $shipping_line ) {
 			$line_item_id = 0;
@@ -456,6 +534,12 @@ class Migrator_CLI_Orders {
 		$order->save();
 	}
 
+	/**
+	 * Adds discount lines to the Woo order.
+	 *
+	 * @param WC_Order $order the Woo order.
+	 * @param object $shopify_order the Shopify order data.
+	 */
 	private function process_discount_lines( $order, $shopify_order ) {
 		$order->remove_order_items( 'coupon' );
 
@@ -474,6 +558,12 @@ class Migrator_CLI_Orders {
 		$order->save();
 	}
 
+	/**
+	 * Adds the shipment tracking to the Woo order.
+	 *
+	 * @param WC_Order $order the Woo order.
+	 * @param object $shopify_order the Shopify order data.
+	 */
 	private function process_shipment_tracking( $order, $shopify_order ) {
 		if ( ! class_exists( 'WC_Shipment_Tracking_Actions' ) ) {
 			return;
@@ -504,6 +594,12 @@ class Migrator_CLI_Orders {
 		}
 	}
 
+	/**
+	 * Process order refunds.
+	 *
+	 * @param WC_Order $order the Woo order.
+	 * @param object $shopify_order the Shopify order data.
+	 */
 	private function process_order_refunds( $order, $shopify_order ) {
 		foreach ( $shopify_order->refunds as $shopify_refund ) {
 
@@ -565,6 +661,12 @@ class Migrator_CLI_Orders {
 		}
 	}
 
+	/**
+	 * Gets a Woo line item product and variation ids by Shopify line item sku or product_id.
+	 *
+	 * @param object $line_item the Shopify line item data.
+	 * @return array containing the Woo product and variation ids.
+	 */
 	private function find_line_item_product( $line_item ) {
 		$product_id   = 0;
 		$variation_id = 0;
@@ -601,6 +703,12 @@ class Migrator_CLI_Orders {
 		return array( $product_id, $variation_id );
 	}
 
+	/**
+	 * Sets the taxes for line items.
+	 *
+	 * @param WC_Order_Item_Product $line_item the Woo line item.
+	 * @param object $shopify_line_item the Shopify line item data.
+	 */
 	private function set_line_item_taxes( $line_item, $shopify_line_item ) {
 		if ( empty( $this->order_tax_rate_ids_mapping ) || empty( $shopify_line_item->tax_lines ) ) {
 			return;
@@ -629,7 +737,7 @@ class Migrator_CLI_Orders {
 	 *  Migrator_CLI_Payment_Methods::update_orders_and_subscriptions_payment_methods.
 	 *
 	 * @param WC_Order $order the order to be updated.
-	 * @param array $shopify_order the shopify order data.
+	 * @param object $shopify_order the shopify order data.
 	 */
 	private function process_payment_data( $order, $shopify_order ) {
 		$response     = Migrator_CLI_Utils::rest_request( 'orders/' . $shopify_order->id . '/transactions.json' );

@@ -2,6 +2,9 @@
 
 class Migrator_CLI_Utils {
 
+	/**
+	 * Checks if Woocommerce is active and if the Shopify tokens are set.
+	 */
 	public static function health_check() {
 		if ( ! function_exists( 'wc_get_orders' ) ) {
 			WP_CLI::error( 'WooCommerce is not active.' );
@@ -16,6 +19,9 @@ class Migrator_CLI_Utils {
 		}
 	}
 
+	/**
+	 * Disable the sequential orders plugin to prevent problems.
+	 */
 	public static function disable_sequential_orders() {
 		if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'We need to disable WooCommerce Sequential Order Numbers plugin while migration to ensure the order number is set correctly. The plugin will be enabled again after migration finished.' );
@@ -23,6 +29,9 @@ class Migrator_CLI_Utils {
 		}
 	}
 
+	/**
+	 * Enables the sequential orders plugin back.
+	 */
 	public static function enable_sequential_orders() {
 		if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Enabling WooCommerce Sequential Order Numbers plugin.' );
@@ -30,6 +39,13 @@ class Migrator_CLI_Utils {
 		}
 	}
 
+	/**
+	 * Executes a rest request to Shopify REST API.
+	 *
+	 * @param string $endpoint the endpoint.
+	 * @param array $body the request body.
+	 * @return array
+	 */
 	public static function rest_request( $endpoint, $body = array() ) {
 		if ( strpos( $endpoint, 'http' ) === false ) {
 			$endpoint = 'https://' . SHOPIFY_DOMAIN . '/admin/api/2023-04/' . $endpoint;
@@ -47,6 +63,12 @@ class Migrator_CLI_Utils {
 		);
 	}
 
+	/**
+	 * Executes a request to the Shopify GraphQL API
+	 *
+	 * @param array $body the request body.
+	 * @return array
+	 */
 	public static function graphql_request( $body ) {
 		return wp_remote_post(
 			'https://' . SHOPIFY_DOMAIN . '/admin/api/2023-04/graphql.json',
@@ -60,6 +82,12 @@ class Migrator_CLI_Utils {
 		);
 	}
 
+	/**
+	 * Gets the next rest page link.
+	 *
+	 * @param array $response
+	 * @return string
+	 */
 	public static function get_rest_next_link( $response ) {
 		$links = wp_remote_retrieve_header( $response, 'link' );
 

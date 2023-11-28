@@ -11,6 +11,11 @@ class Migrator_CLI_Payment_Methods {
 	const ORIGINAL_PAYMENT_METHOD_ID_KEY = '_original_payment_method_id';
 	const ORIGINAL_PAYMENT_LAST_4        = '_original_payment_last_4';
 
+	/**
+	 * Imports the WooPayments customer and payment method data from Shopify.
+	 * It uses the WooPayments connection to the server to download the data.
+	 * So WooPayments needs to be installed and configured.
+	 */
 	public function import_stripe_data_into_woopayments() {
 
 		Migrator_CLI_Utils::health_check();
@@ -28,6 +33,11 @@ class Migrator_CLI_Payment_Methods {
 		WP_CLI::line( 'Done' );
 	}
 
+	/**
+	 * Imports customer data. Sets the Stripe `cus_` to the Woo customer.
+	 *
+	 * @param array $stripe_customers the customers found in Stripe.
+	 */
 	private function import_customers_data( $stripe_customers ) {
 		foreach ( $stripe_customers as $stripe_customer ) {
 
@@ -39,13 +49,19 @@ class Migrator_CLI_Payment_Methods {
 
 			WP_CLI::line( 'Processing customer : ' . $stripe_customer['email'] . '(' . $user->ID . ')' );
 			update_user_option( $user->ID, self::get_customer_id_option(), $stripe_customer['id'] );
-			$this->import_payment_methods( $stripe_customer, $user );
+			$this->import_payment_methods( $stripe_customer['id'], $user );
 		}
 	}
 
-	private function import_payment_methods( $stripe_customer, $user ) {
+	/**
+	 * Imports payment method data `pm_` from Stripe.
+	 *
+	 * @param string $stripe_customer the Stripe customer `cus_` id.
+	 * @param WP_User $user the Woo Customer.
+	 */
+	private function import_payment_methods( $stripe_customer_id, $user ) {
 		$payments_api_client    = WC_Payments::get_payments_api_client();
-		$stripe_payment_methods = $payments_api_client->get_payment_methods( $stripe_customer['id'], 'card' )['data'];
+		$stripe_payment_methods = $payments_api_client->get_payment_methods( $stripe_customer_id, 'card' )['data'];
 
 		$saved_payment_tokens = WC_Payment_Tokens::get_customer_tokens( $user->ID );
 
@@ -70,6 +86,13 @@ class Migrator_CLI_Payment_Methods {
 		}
 	}
 
+	/**
+	 * Searches for a payment token in the array that matches the given `pm_`.
+	 *
+	 * @param array $saved_payment_tokens Woo payment tokens.
+	 * @param string $stripe_payment_method_id stripe payment method id `pm_`.
+	 * @return WC_Payment_Token
+	 */
 	private function search_payment_token_by_stripe_id( $saved_payment_tokens, $stripe_payment_method_id ) {
 		foreach ( $saved_payment_tokens as $saved_payment_token ) {
 			if ( $stripe_payment_method_id === $saved_payment_token->get_token() ) {
@@ -84,7 +107,6 @@ class Migrator_CLI_Payment_Methods {
 	 * the orders and subscriptions to the new methods.
 	 *
 	 * @param array $assoc_args containing the mapping_file absolute path.
-	 * @return void
 	 */
 	public function update_orders_and_subscriptions_payment_methods( $assoc_args ) {
 		if ( ! class_exists( 'WC_Payments_Customer_Service' ) ) {
@@ -204,11 +226,10 @@ class Migrator_CLI_Payment_Methods {
 	}
 
 	/**
-	 * Searches a WP_User by the stripe id.
+	 * Searches a WP_User by Stripe id.
 	 *
-	 * @param $stripe_id
+	 * @param string $stripe_id stripe customer id `cus_`.
 	 * @return WP_User
-	 * @throws Exception
 	 */
 	private function get_user_by_stripe_id( $stripe_id ) {
 		$users = get_users(
@@ -232,7 +253,7 @@ class Migrator_CLI_Payment_Methods {
 	}
 
 	/**
-	 * Sets the new payment method for orders and subscriptions
+	 * Sets the new payment method for orders and subscriptions.
 	 *
 	 * @param string $type shop_order|shop_subscription.
 	 */
@@ -273,7 +294,6 @@ class Migrator_CLI_Payment_Methods {
 	 * Returns the meta_key where the stripe customer_id is stored without the wp_ at the beginning.
 	 * Extracted from https://github.com/Automattic/woocommerce-payments/blob/92525c2a637bf592ec412bb0a979ab91862575d1/includes/class-wc-payments-customer-service.php#L407-L416
 	 * @return string
-	 * @throws Exception
 	 */
 	private static function get_customer_id_option(): string {
 		return WC_Payments::mode()->is_test()
@@ -284,8 +304,7 @@ class Migrator_CLI_Payment_Methods {
 	/**
 	 * Updates shopify_payments to WooPayments.
 	 *
-	 * @param WC_Order $order the order or subscription to be updated
-	 * @throws WC_Data_Exception
+	 * @param WC_Order $order the order or subscription to be updated/
 	 */
 	private function process_shopify_payments( WC_Order $order ) {
 		$old_payment_method_id     = $order->get_meta( self::ORIGINAL_PAYMENT_METHOD_ID_KEY );

@@ -5,6 +5,11 @@ class Migrator_CLI_Products {
 	private $additional_product_data;
 	private $migration_data;
 
+	/**
+	 * Migrates products from Shopify into Woo.
+	 *
+	 * @param $assoc_args ['before'] ['after'] ['limit'] ['perpage'] ['next'] ['status'] ['status'] ['ids'] ['exclude'] ['handle'] ['product-type'] ['product-type'] ['no-update']
+	 */
 	public function migrate_products( $assoc_args ) {
 		Migrator_CLI_Utils::health_check();
 
@@ -135,7 +140,7 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Supports matching against an array of regular expressions, and will do a glob match so things like CANAL_* will match every product that starts with CANAL_
+	 * Supports matching against an array of regular expressions, and will do a glob match so things like CANAL_* will match every product that starts with CANAL_.
 	 *
 	 * @param string $subject Product SKU.
 	 * @param array  $patterns Array of patterns to match against.
@@ -156,6 +161,11 @@ class Migrator_CLI_Products {
 		return false;
 	}
 
+	/**
+	 * Fetches additional product data from Shopify and saves it to $this->additional_product_data.
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 */
 	private function fetch_additional_shopify_product_data( $shopify_product ) {
 		$response = Migrator_CLI_Utils::graphql_request(
 			array(
@@ -193,10 +203,24 @@ class Migrator_CLI_Products {
 		sleep( 1 ); // Pause the execution for 1 second to avoid rate limit.
 	}
 
+	/**
+	 * Checks if the product contains variants.
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 * @return bool
+	 */
 	private function is_variable_product( $shopify_product ) {
 		return count( $shopify_product->variants ) > 1;
 	}
 
+	/**
+	 * Gets the Woo product that matches the Shopify product id.
+	 * If none is found tries to match the sku.
+	 * If none is found tries to match the handle.
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 * @return WC_Product|null
+	 */
 	private function get_corresponding_woo_product( $shopify_product ) {
 		// Try finding the product by original Shopify product ID.
 		$woo_products = wc_get_products(
@@ -231,6 +255,12 @@ class Migrator_CLI_Products {
 		return null;
 	}
 
+	/**
+	 * Creates or updates the Woo product.
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 * @param WC_Product $woo_product the Woo product.
+	 */
 	private function create_or_update_woo_product( $shopify_product, $woo_product = null ) {
 		$this->migration_data = array(
 			'product_id'         => $shopify_product->id,
@@ -358,10 +388,22 @@ class Migrator_CLI_Products {
 		WP_CLI::line( 'Woo Product ID: ' . $product->get_id() );
 	}
 
+	/**
+	 * Checks if the field is contained in the $this->fields array.
+	 *
+	 * @param string $field the field to be checked.
+	 * @return bool
+	 */
 	private function should_process( $field ) {
 		return in_array( $field, $this->fields, true );
 	}
 
+	/**
+	 * Sanitizes the product description html.
+	 *
+	 * @param string $html the product description html.
+	 * @return string sanitized description.
+	 */
 	private function sanitize_product_description( $html ) {
 		$html = mb_convert_encoding( $html, 'HTML-ENTITIES', 'UTF-8' );
 
@@ -377,6 +419,12 @@ class Migrator_CLI_Products {
 		return $html;
 	}
 
+	/**
+	 * Converts the Shopify product status into Woo product status.
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 * @return string the Woo product status.
+	 */
 	private function get_woo_product_status( $shopify_product ) {
 		$woo_product_status = 'draft';
 
@@ -387,6 +435,12 @@ class Migrator_CLI_Products {
 		return $woo_product_status;
 	}
 
+	/**
+	 * Gets the Woo product category ids that match the collection handle in
+	 * $this->additional_product_data->collections->edges[collection]->node->handle
+	 *
+	 * @return array
+	 */
 	private function get_woo_product_category_ids() {
 		$category_ids = array();
 		$collections  = $this->additional_product_data->collections->edges;
@@ -416,6 +470,12 @@ class Migrator_CLI_Products {
 		return $category_ids;
 	}
 
+	/**
+	 * Gets the Woo product tags ids that match the Shopify product tags.
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 * @return array
+	 */
 	private function get_woo_product_tag_ids( $shopify_product ) {
 		$tag_ids = array();
 
@@ -449,6 +509,13 @@ class Migrator_CLI_Products {
 		return $tag_ids;
 	}
 
+	/**
+	 * Returns a conversion table for a given weight.
+	 *
+	 * @param float $weight the old weight.
+	 * @param string $weight_unit the original unit.
+	 * @return float
+	 */
 	private function get_converted_weight( $weight, $weight_unit ) {
 		$store_weight_unit = get_option( 'woocommerce_weight_unit' );
 		if ( 'lbs' === $store_weight_unit ) {
@@ -485,6 +552,12 @@ class Migrator_CLI_Products {
 		return $weight * $conversion[ $weight_unit ][ $store_weight_unit ];
 	}
 
+	/**
+	 * Sets the Woo product brand.
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 * @param WC_Product $product the Woo product.
+	 */
 	private function set_woo_product_brand( $shopify_product, $product ) {
 		if ( ! taxonomy_exists( 'product_brand' ) ) {
 			return;
@@ -511,6 +584,12 @@ class Migrator_CLI_Products {
 		wp_set_object_terms( $product->get_id(), $woo_product_brand['term_id'], 'product_brand' );
 	}
 
+	/**
+	 * Saves product images.
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 * @param WC_Product $product the Woo product.
+	 */
 	private function upload_images( $shopify_product, $product ) {
 		foreach ( $shopify_product->images as $image ) {
 			// Check if the image has already been uploaded.
@@ -532,6 +611,12 @@ class Migrator_CLI_Products {
 		$this->migration_data['images_mapping'] = $this->migration_data['images_mapping'];
 	}
 
+	/**
+	 * Gets the Woo product image id that matches the first Shopify product image id.
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 * @return int
+	 */
 	private function get_woo_product_image_id( $shopify_product ) {
 		if ( empty( $shopify_product->images ) ) {
 			return 0;
@@ -541,6 +626,12 @@ class Migrator_CLI_Products {
 		return $this->migration_data['images_mapping'][ $shopify_product->images[0]->id ];
 	}
 
+	/**
+	 * Gets the Woo product gallery image ids
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 * @return array
+	 */
 	private function get_woo_product_gallery_image_ids( $shopify_product ) {
 		if ( count( $this->migration_data['images_mapping'] ) < 2 ) {
 			return array();
@@ -549,6 +640,12 @@ class Migrator_CLI_Products {
 		return array_diff( array_values( $this->migration_data['images_mapping'] ), array( $this->get_woo_product_image_id( $shopify_product, $this->migration_data['images_mapping'] ) ) );
 	}
 
+	/**
+	 * Creates or updates Woo product variations.
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 * @param WC_Product $product the Woo product.
+	 */
 	private function create_or_update_woo_product_variations( $shopify_product, $product ) {
 		$attribute_taxonomy_mapping = array();
 
@@ -703,6 +800,12 @@ class Migrator_CLI_Products {
 		$this->clean_up_orphan_variations( $product );
 	}
 
+	/**
+	 * Updates the SEO tittle description for a product.
+	 *
+	 * @param object $shopify_product the Shopify product data.
+	 * @param WC_Product $product the Woo product.
+	 */
 	private function update_seo_title_description( $shopify_product, WC_Product $product ) {
 		$current_seo_title       = $product->get_meta( '_yoast_wpseo_title' );
 		$current_seo_description = $product->get_meta( '_yoast_wpseo_metadesc' );
@@ -731,6 +834,11 @@ class Migrator_CLI_Products {
 		$product->save();
 	}
 
+	/**
+	 * Removes variations that were not added during this run.
+	 *
+	 * @param WC_Product $product the Woo product.
+	 */
 	private function clean_up_orphan_variations( $product ) {
 		if ( ! isset( $this->assoc_args['remove-orphans'] ) ) {
 			return;

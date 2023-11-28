@@ -1,6 +1,12 @@
 <?php
 
 class Migrator_CLI_Subscriptions {
+
+	/**
+	 * Imports Skio subscriptions.
+	 *
+	 * @param $assoc_args ['subscriptions_export_file'] ['orders_export_file']
+	 */
 	public function import( $assoc_args ) {
 
 		try {
@@ -30,7 +36,12 @@ class Migrator_CLI_Subscriptions {
 		WP_CLI::line( WP_CLI::colorize( '%GDone%n' ) );
 	}
 
-	// Clones the line item and adds it to the subscription.
+	/**
+	 * Clones the line item and adds it to the subscription.
+	 *
+	 * @param WC_Order_Item $item the item to be cloned.
+	 * @param WC_Subscription $subscription the subscription to add the line item to.
+	 */
 	private function clone_item_to_subscription( $item, $subscription ) {
 		$new_item = clone $item;
 		$new_item->set_id( 0 );
@@ -40,6 +51,12 @@ class Migrator_CLI_Subscriptions {
 		$subscription->add_item( $new_item );
 	}
 
+	/**
+	 * Gets the json data from a file.
+	 *
+	 * @param string $file the file path.
+	 * @return array
+	 */
 	private function get_data_from_file( $file ) {
 		if ( ! is_file( $file ) ) {
 			WP_CLI::line( WP_CLI::colorize( '%RFile not found:%n ' . $file ) );
@@ -49,6 +66,11 @@ class Migrator_CLI_Subscriptions {
 		return wp_json_file_decode( $file, array( 'associative' => true ) );
 	}
 
+	/**
+	 * Add the Shopify subscription ids to Woo orders.
+	 *
+	 * @param array $skio_orders the Skio orders data.
+	 */
 	private function add_subscription_id_to_orders( $skio_orders ) {
 		foreach ( $skio_orders as $skio_order ) {
 			WP_CLI::line( 'Processing order: ' . $skio_order['orderPlatformNumber'] );
@@ -74,6 +96,11 @@ class Migrator_CLI_Subscriptions {
 		}
 	}
 
+	/**
+	 * Creates or updates subscriptions.
+	 *
+	 * @param array $skio_subscriptions the Skio subscriptions array.
+	 */
 	private function create_or_update_subscriptions( $skio_subscriptions ) {
 		foreach ( $skio_subscriptions as $skio_subscription ) {
 			WP_CLI::line( 'Processing subscription: ' . $skio_subscription['subscriptionId'] );
@@ -127,6 +154,13 @@ class Migrator_CLI_Subscriptions {
 		}
 	}
 
+	/**
+	 * Gets or creates a new Woo subscription.
+	 *
+	 * @param array $skio_subscription the skio subscription data.
+	 * @param WC_Order $oldest_order the oldest Woo order for this subscription.
+	 * @return WC_Subscription
+	 */
 	private function get_or_create_subscription( $skio_subscription, $oldest_order ) {
 		$args = array(
 			'type'         => 'shop_subscription',
@@ -187,6 +221,12 @@ class Migrator_CLI_Subscriptions {
 		return $subscription;
 	}
 
+	/**
+	 * Copies line items from a order to a subscription.
+	 *
+	 * @param WC_Subscription $subscription the Woo subscription.
+	 * @param WC_Order $latest_order the Woo order.
+	 */
 	private function add_line_items( $subscription, $latest_order ) {
 
 		// Prevents duplication on updates.
@@ -199,6 +239,12 @@ class Migrator_CLI_Subscriptions {
 		}
 	}
 
+	/**
+	 * Copies the billing address from an order into the subscription.
+	 *
+	 * @param WC_Subscription $subscription the Woo subscription.
+	 * @param WC_Order $latest_order the latest Woo order for that subscription.
+	 */
 	private function update_billing_address( $subscription, $latest_order ) {
 		$subscription->set_billing_first_name( $latest_order->get_billing_first_name() );
 		$subscription->set_billing_last_name( $latest_order->get_billing_last_name() );
@@ -212,6 +258,12 @@ class Migrator_CLI_Subscriptions {
 		$subscription->set_billing_phone( $latest_order->get_billing_phone() );
 	}
 
+	/**
+	 * Copies the shipping address from an order into the subscription.
+	 *
+	 * @param WC_Subscription $subscription the Woo subscription.
+	 * @param WC_Order $latest_order the latest Woo order for that subscription.
+	 */
 	private function update_shipping_address( $subscription, $latest_order ) {
 		$subscription->set_shipping_first_name( $latest_order->get_shipping_first_name() );
 		$subscription->set_shipping_last_name( $latest_order->get_shipping_last_name() );
@@ -225,6 +277,13 @@ class Migrator_CLI_Subscriptions {
 		$subscription->set_shipping_phone( $latest_order->get_shipping_phone() );
 	}
 
+	/**
+	 * Attaches the orders to a subscription.
+	 *
+	 * @param WC_Subscription $subscription the Woo subscription.
+	 * @param array $existing_orders the orders that should be attached to that subscription.
+	 * @param WC_Order $oldest_order the oldest order for that subscription.
+	 */
 	private function attatch_orders( $subscription, $existing_orders, $oldest_order ) {
 		foreach ( $existing_orders as $order ) {
 			// Prevents adding the oldest order twice.
@@ -236,6 +295,12 @@ class Migrator_CLI_Subscriptions {
 		}
 	}
 
+	/**
+	 * Converts and sets the subscription status
+	 *
+	 * @param WC_Subscription $subscription the Woo subscription.
+	 * @param array $skio_subscription the Skio subscription data.
+	 */
 	private function set_subscription_status( $subscription, $skio_subscription ) {
 
 		if ( ! in_array( $skio_subscription['status'], array( 'ACTIVE', 'CANCELLED' ), true ) ) {

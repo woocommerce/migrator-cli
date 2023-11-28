@@ -1,6 +1,12 @@
 <?php
 
 class Migrator_CLI_Order_Tags {
+
+	/**
+	 * Pulls the orders tags from Shopify and sets them to the orders.
+	 *
+	 * @param array $assoc_args ['dry-run'] ['before'] ['after'] ['limit'] ['perpage'] ['next']
+	 */
 	public function fix_missing_order_tags( $assoc_args ) {
 		Migrator_CLI_Utils::health_check();
 
