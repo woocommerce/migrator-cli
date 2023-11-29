@@ -1,7 +1,7 @@
 <?php
 
 class Migrator_CLI_Order_Tags {
-	public function fix_missing_order_tags( $assoc_args ) {
+	public function __invoke( $args, $assoc_args ) {
 		Migrator_CLI_Utils::health_check();
 
 		$dry_run   = isset( $assoc_args['dry-run'] ) ? true : false;

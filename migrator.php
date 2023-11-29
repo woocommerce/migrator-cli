@@ -16,7 +16,7 @@ if ( file_exists( __DIR__ . '/config.php' ) ) {
 	require_once __DIR__ . '/config.php';
 }
 
-require_once __DIR__ . '/includes/class-migrator-cli.php';
+//require_once __DIR__ . '/includes/class-migrator-cli.php';
 require_once __DIR__ . '/includes/class-migrator-cli-utils.php';
 require_once __DIR__ . '/includes/class-migrator-cli-order-tags.php';
 require_once __DIR__ . '/includes/class-migrator-cli-orders.php';
@@ -28,5 +28,7 @@ add_action(
 	'cli_init',
 	function () {
 		WP_CLI::add_command( 'migrator', 'Migrator_CLI' );
+		WP_CLI::add_command( 'migrator fix_missing_order_tags', 'Migrator_CLI_Order_Tags' );
+		WP_CLI::add_command( 'migrator orders', 'Migrator_CLI_Orders' );
 	}
 );

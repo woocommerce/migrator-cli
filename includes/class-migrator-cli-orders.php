@@ -6,7 +6,7 @@ class Migrator_CLI_Orders {
 	private $order_items_mapping;
 	private $order_tax_rate_ids_mapping;
 
-	public function migrate_orders( $assoc_args ) {
+	public function __invoke( $args, $assoc_args ) {
 		$this->assoc_args = $assoc_args;
 
 		Migrator_CLI_Utils::health_check();
