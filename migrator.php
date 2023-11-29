@@ -16,7 +16,6 @@ if ( file_exists( __DIR__ . '/config.php' ) ) {
 	require_once __DIR__ . '/config.php';
 }
 
-//require_once __DIR__ . '/includes/class-migrator-cli.php';
 require_once __DIR__ . '/includes/class-migrator-cli-utils.php';
 require_once __DIR__ . '/includes/class-migrator-cli-order-tags.php';
 require_once __DIR__ . '/includes/class-migrator-cli-orders.php';
@@ -27,8 +26,10 @@ require_once __DIR__ . '/includes/class-migrator-cli-subscriptions.php';
 add_action(
 	'cli_init',
 	function () {
-		WP_CLI::add_command( 'migrator', 'Migrator_CLI' );
 		WP_CLI::add_command( 'migrator fix_missing_order_tags', 'Migrator_CLI_Order_Tags' );
 		WP_CLI::add_command( 'migrator orders', 'Migrator_CLI_Orders' );
+		WP_CLI::add_command( 'migrator import_stripe_data_into_woopayments', 'Migrator_CLI_Payment_Methods' );
+		WP_CLI::add_command( 'migrator products', 'Migrator_CLI_Products' );
+		WP_CLI::add_command( 'migrator subscriptions', 'Migrator_CLI_Subscriptions' );
 	}
 );

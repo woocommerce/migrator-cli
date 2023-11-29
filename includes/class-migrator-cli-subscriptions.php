@@ -1,7 +1,7 @@
 <?php
 
 class Migrator_CLI_Subscriptions {
-	public function import( $assoc_args ) {
+	public function __invoke( $args, $assoc_args ) {
 
 		try {
 			Migrator_CLI_Utils::health_check();

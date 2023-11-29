@@ -5,7 +5,7 @@ class Migrator_CLI_Products {
 	private $additional_product_data;
 	private $migration_data;
 
-	public function migrate_products( $assoc_args ) {
+	public function __invoke( $args, $assoc_args ) {
 		Migrator_CLI_Utils::health_check();
 
 		if ( isset( $assoc_args['fields'] ) ) {

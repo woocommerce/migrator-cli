@@ -2,7 +2,7 @@
 
 class Migrator_CLI_Payment_Methods {
 
-	public function import_stripe_data_into_woopayments() {
+	public function __invoke() {
 
 		Migrator_CLI_Utils::health_check();
 
