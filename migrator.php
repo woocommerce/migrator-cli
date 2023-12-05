@@ -17,6 +17,7 @@ if ( file_exists( __DIR__ . '/config.php' ) ) {
 }
 
 require_once __DIR__ . '/includes/class-migrator-cli.php';
+require_once __DIR__ . '/includes/class-migrator-cli-coupons.php';
 require_once __DIR__ . '/includes/class-migrator-cli-utils.php';
 require_once __DIR__ . '/includes/class-migrator-cli-order-tags.php';
 require_once __DIR__ . '/includes/class-migrator-cli-orders.php';
