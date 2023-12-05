@@ -142,6 +142,7 @@ class Migrator_CLI_Subscriptions {
 			$subscription->set_payment_method( $latest_order->get_payment_method() );
 			$subscription->set_payment_method_title( $latest_order->get_payment_method_title() );
 			$subscription->set_shipping_total( $latest_order->get_shipping_total() );
+			$subscription->set_discount_total( $latest_order->get_discount_total() );
 
 			$subscription->update_meta_data( '_skio_subscription_id', $skio_subscription['subscriptionId'] );
 
@@ -151,6 +152,9 @@ class Migrator_CLI_Subscriptions {
 
 			$subscription->save();
 			$subscription->calculate_totals();
+			if ( $subscription->get_total() !== $latest_order->get_total() ) {
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Totals mismatch between last order and subscription. This could mean the coupon is wrong or some item is missing' );
+			}
 		}
 	}
 
