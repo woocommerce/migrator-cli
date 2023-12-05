@@ -206,4 +206,9 @@ class Migrator_CLI extends WP_CLI_Command {
 		$payment_methods = new Migrator_Cli_Payment_Methods();
 		$payment_methods->update_orders_and_subscriptions_payment_methods( $assoc_args );
 	}
+
+	public function import_coupons() {
+		$coupons = new Migrator_CLI_Coupons();
+		$coupons->import();
+	}
 }
