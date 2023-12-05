@@ -21,7 +21,7 @@ class Migrator_CLI_Payment_Methods {
 		Migrator_CLI_Utils::health_check();
 
 		if ( ! class_exists( 'WC_Payments' ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%RWooPayments is not active%n' ) );
+			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'WooPayments is not active' );
 			die();
 		}
 
@@ -43,7 +43,7 @@ class Migrator_CLI_Payment_Methods {
 
 			$user = get_user_by( 'email', $stripe_customer['email'] );
 			if ( ! $user || is_wp_error( $user ) || 0 === $user->ID ) {
-				WP_CLI::line( WP_CLI::colorize( '%RCustomer not found:%n ' . $stripe_customer['email'] ) );
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Customer not found: ' . $stripe_customer['email'] );
 				continue;
 			}
 
@@ -110,12 +110,12 @@ class Migrator_CLI_Payment_Methods {
 	 */
 	public function update_orders_and_subscriptions_payment_methods( $assoc_args ) {
 		if ( ! class_exists( 'WC_Payments_Customer_Service' ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%RWooPayments is not active%n' ) );
+			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'WooPayments is not active' );
 			die();
 		}
 
 		if ( ! is_file( $assoc_args['migration_file'] ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%RFile not found%n' ) );
+			WP_CLI::line( WP_CLI::colorize( '%RError%n ' ) . 'File not found' );
 			die();
 		}
 
@@ -143,7 +143,7 @@ class Migrator_CLI_Payment_Methods {
 			$data = explode( ',', $line );
 
 			if ( 0 === $i && ! $this->is_csv_correctly_formatted( $data ) ) {
-				WP_CLI::line( WP_CLI::colorize( '%RCSV not correctly formatted%n' ) );
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'CSV not correctly formatted' );
 				die();
 			}
 
@@ -163,7 +163,7 @@ class Migrator_CLI_Payment_Methods {
 			$token = $this->get_customer_token( $user->ID, $data[ self::NEW_SOURCE_ID_POS ] );
 
 			if ( ! $token ) {
-				WP_CLI::line( WP_CLI::colorize( '%RToken not found:%n ' ) . $data[ self::NEW_SOURCE_ID_POS ] );
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Token not found:' . $data[ self::NEW_SOURCE_ID_POS ] );
 				continue;
 			}
 
@@ -219,7 +219,7 @@ class Migrator_CLI_Payment_Methods {
 				if ( (int) $old_payment_method_last_4 === (int) $token->get_meta( 'last4' ) ) {
 					return $token;
 				} else {
-					WP_CLI::line( WP_CLI::colorize( '%RMismatch Payment Token last 4:%n' ) . $old_payment_method_id );
+					WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Mismatch Payment Token last 4:' . $old_payment_method_id );
 				}
 			}
 		}
@@ -240,12 +240,12 @@ class Migrator_CLI_Payment_Methods {
 		);
 
 		if ( is_wp_error( $users ) || ! $users ) {
-			WP_CLI::line( WP_CLI::colorize( '%RCustomer not found%n' ) );
+			WP_CLI::line( WP_CLI::colorize( '%RError: %n ' ) . 'Customer not found' );
 			return;
 		}
 
 		if ( count( $users ) > 1 ) {
-			WP_CLI::line( WP_CLI::colorize( '%RMultiple Customers found%n' ) );
+			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Multiple Customers found' );
 			return;
 		}
 
@@ -279,10 +279,10 @@ class Migrator_CLI_Payment_Methods {
 						$this->process_shopify_payments( $order );
 						break;
 					case null:
-						WP_CLI::line( WP_CLI::colorize( '%RPayment gateway not set%n ' ) );
+						WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Payment gateway not set' );
 						break;
 					default:
-						WP_CLI::line( WP_CLI::colorize( '%RUnkown payment gateway:%n ' ) . $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
+						WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Unkown payment gateway' . $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
 				}
 			}
 
@@ -314,7 +314,7 @@ class Migrator_CLI_Payment_Methods {
 		$token = $this->get_customer_token_by_old_payment_method_id( $order->get_customer_id(), $old_payment_method_id, $old_payment_method_last_4 );
 
 		if ( ! $token ) {
-			WP_CLI::line( WP_CLI::colorize( '%RPayment Token not found:%n ' ) . $old_payment_method_id );
+			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Payment Token not found:' . $old_payment_method_id );
 			return;
 		}
 

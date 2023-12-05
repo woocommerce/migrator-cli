@@ -768,7 +768,7 @@ class Migrator_CLI_Orders {
 				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->billing_agreement_id );
 				break;
 			default:
-				WP_CLI::line( WP_CLI::colorize( '%RUnkown payment gateway:%n ' ) . $transaction->gateway );
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Unkown payment gateway: ' . $transaction->gateway );
 		}
 	}
 

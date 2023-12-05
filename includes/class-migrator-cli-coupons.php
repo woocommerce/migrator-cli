@@ -19,6 +19,8 @@ class Migrator_CLI_Coupons {
 			sleep( 1 );
 			return;
 		} while ( $response_data->data->codeDiscountNodes->pageInfo->hasNextPage );
+
+		WP_CLI::line( WP_CLI::colorize( '%GDone%n' ) );
 	}
 
 	private function get_next_discount( $cursor ) {

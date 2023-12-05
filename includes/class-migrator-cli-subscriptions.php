@@ -13,7 +13,7 @@ class Migrator_CLI_Subscriptions {
 			Migrator_CLI_Utils::health_check();
 
 			if ( ! isset( $assoc_args['subscriptions_export_file'] ) || ! isset( $assoc_args['orders_export_file'] ) ) {
-				WP_CLI::line( WP_CLI::colorize( '%RExport Files not provided. Go to Skio dashboard > Export and export both subscriptions and orders. Then pass the file path to --subscriptions_export_file and --orders_export_file args%n' ) );
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Export Files not provided. Go to Skio dashboard > Export and export both subscriptions and orders. Then pass the file path to --subscriptions_export_file and --orders_export_file args' );
 				return;
 			}
 
@@ -59,7 +59,7 @@ class Migrator_CLI_Subscriptions {
 	 */
 	private function get_data_from_file( $file ) {
 		if ( ! is_file( $file ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%RFile not found:%n ' . $file ) );
+			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' . 'File not found: ' . $file ) );
 			die();
 		}
 
@@ -118,7 +118,7 @@ class Migrator_CLI_Subscriptions {
 			$existing_orders = wc_get_orders( $args );
 
 			if ( ! $existing_orders ) {
-				WP_CLI::line( 'Woo Order not found for Skio Subscription: ' . $skio_subscription['subscriptionId'] );
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Woo Order not found for Skio Subscription: ' . $skio_subscription['subscriptionId'] );
 				continue;
 			}
 
@@ -130,7 +130,7 @@ class Migrator_CLI_Subscriptions {
 			$subscription = $this->get_or_create_subscription( $skio_subscription, $oldest_order );
 
 			if ( is_wp_error( $subscription ) ) {
-				WP_CLI::line( 'Error when creating the subscription: ' . $subscription->get_error_message() );
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'When creating the subscription: ' . $subscription->get_error_message() );
 				continue;
 			}
 
@@ -349,11 +349,11 @@ class Migrator_CLI_Subscriptions {
 		switch ( $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY ) ) {
 			case 'shopify_payments':
 				if ( ! class_exists( 'WC_Gateway_PPEC_Plugin' ) ) {
-					WP_CLI::line( WP_CLI::colorize( '%RPayPal Express Plugin not installed. It will be necessary to process payments for this subscription%n' ) );
+					WP_CLI::line( WP_CLI::colorize( '%RError:%n' ) . 'PayPal Express Plugin not installed. It will be necessary to process payments for this subscription' );
 				}
 
 				if ( (int) $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4 ) !== (int) $skio_subscription['paymentMethodLastDigits'] ) {
-					WP_CLI::line( WP_CLI::colorize( '%RMismatch in subscription payment method last 4%n' ) );
+					WP_CLI::line( WP_CLI::colorize( '%RError:%n' ) . 'Mismatch in subscription payment method last 4' );
 					return;
 				}
 
@@ -364,7 +364,7 @@ class Migrator_CLI_Subscriptions {
 			// 'paypal' not 'PayPal' they are two different gateways.
 			case 'paypal':
 				if ( ! class_exists( 'WC_Gateway_PPEC_Plugin' ) ) {
-					WP_CLI::line( WP_CLI::colorize( '%RPayPal Express Plugin not installed. It will be necessary to process payments for this subscription%n' ) );
+					WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'PayPal Express Plugin not installed. It will be necessary to process payments for this subscription' );
 				}
 
 				// Todo: Needs to check if PayPal is active.
@@ -375,7 +375,7 @@ class Migrator_CLI_Subscriptions {
 				$subscription->update_meta_data( '_ppec_billing_agreement_id', $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY ) );
 				break;
 			default:
-				WP_CLI::line( WP_CLI::colorize( '%RUnknown payment gateway%n' ) );
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Unknown payment gateway' );
 		}
 	}
 }
