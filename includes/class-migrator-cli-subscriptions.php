@@ -353,7 +353,7 @@ class Migrator_CLI_Subscriptions {
 				}
 
 				if ( (int) $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4 ) !== (int) $skio_subscription['paymentMethodLastDigits'] ) {
-					WP_CLI::line( WP_CLI::colorize( '%RMissmatch in subscription payment method last 4%n' ) );
+					WP_CLI::line( WP_CLI::colorize( '%RMismatch in subscription payment method last 4%n' ) );
 					return;
 				}
 

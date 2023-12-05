@@ -219,7 +219,7 @@ class Migrator_CLI_Payment_Methods {
 				if ( (int) $old_payment_method_last_4 === (int) $token->get_meta( 'last4' ) ) {
 					return $token;
 				} else {
-					WP_CLI::line( WP_CLI::colorize( '%RMissmatch Payment Token last 4:%n' ) . $old_payment_method_id );
+					WP_CLI::line( WP_CLI::colorize( '%RMismatch Payment Token last 4:%n' ) . $old_payment_method_id );
 				}
 			}
 		}
