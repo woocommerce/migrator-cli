@@ -215,8 +215,6 @@ class Migrator_CLI_Products {
 
 	/**
 	 * Gets the Woo product that matches the Shopify product id.
-	 * If none is found tries to match the sku.
-	 * If none is found tries to match the handle.
 	 *
 	 * @param object $shopify_product the Shopify product data.
 	 * @return WC_Product|null
@@ -234,25 +232,6 @@ class Migrator_CLI_Products {
 		if ( count( $woo_products ) === 1 && is_a( $woo_products[0], 'WC_Product' ) ) {
 			return wc_get_product( $woo_products[0] );
 		}
-
-		// Check if the product already exists in Woo by SKU. Only if the
-		// product is a single product.
-		if ( ! $this->is_variable_product( $shopify_product ) && $shopify_product->variants[0]->sku ) {
-			$woo_product = wc_get_product_id_by_sku( $shopify_product->variants[0]->sku );
-
-			if ( $woo_product ) {
-				return wc_get_product( $woo_product );
-			}
-		}
-
-		// Check if the product already exists in Woo by handle.
-		$woo_product = get_page_by_path( $shopify_product->handle, OBJECT, 'product' );
-
-		if ( $woo_product ) {
-			return wc_get_product( $woo_product );
-		}
-
-		return null;
 	}
 
 	/**
@@ -333,7 +312,8 @@ class Migrator_CLI_Products {
 				}
 			}
 			if ( $this->should_process( 'sku' ) ) {
-				$product->set_sku( $shopify_product->variants[0]->sku );
+				// Setting props directly prevents errors when there are products with duplicated SKUs.
+				$product->set_props( array( 'sku' => $shopify_product->variants[0]->sku ) );
 			}
 			if ( $this->should_process( 'stock' ) ) {
 				$product->set_manage_stock( 'shopify' === $shopify_product->variants[0]->inventory_management );
