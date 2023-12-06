@@ -30,6 +30,8 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * @when after_wp_load
 	 */
 	public function fix_missing_order_tags( $args, $assoc_args ) {
+		Migrator_CLI_Utils::set_importing_const();
+
 		$order_tags = new Migrator_CLI_Order_Tags();
 		$order_tags->fix_missing_order_tags( $assoc_args );
 	}
@@ -87,6 +89,8 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * @when after_wp_load
 	 */
 	public function products( $args, $assoc_args ) {
+		Migrator_CLI_Utils::set_importing_const();
+
 		$products = new Migrator_CLI_Products();
 		$products->migrate_products( $assoc_args );
 	}
@@ -141,8 +145,11 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * @when after_wp_load
 	 */
 	public function orders( $args, $assoc_args ) {
+		Migrator_CLI_Utils::set_importing_const();
+
 		$this->assoc_args = $assoc_args;
-		$orders           = new Migrator_CLI_Orders();
+
+		$orders = new Migrator_CLI_Orders();
 		$orders->migrate_orders( $assoc_args );
 	}
 
@@ -164,6 +171,8 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * @when after_wp_load
 	 */
 	public function skio_subscriptions( $args, $assoc_args ) {
+		Migrator_CLI_Utils::set_importing_const();
+
 		$subscriptions = new Migrator_CLI_Subscriptions();
 		$subscriptions->import( $assoc_args );
 	}
@@ -183,6 +192,8 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * @when after_wp_load
 	 */
 	public function import_stripe_data_into_woopayments() {
+		Migrator_CLI_Utils::set_importing_const();
+
 		$payment_methods = new Migrator_CLI_Payment_Methods();
 		$payment_methods->import_stripe_data_into_woopayments();
 	}
@@ -203,11 +214,15 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * @when after_wp_load
 	 */
 	public function add_woopayments_migration_data( $args, $assoc_args ) {
+		Migrator_CLI_Utils::set_importing_const();
+
 		$payment_methods = new Migrator_Cli_Payment_Methods();
 		$payment_methods->update_orders_and_subscriptions_payment_methods( $assoc_args );
 	}
 
 	public function coupons() {
+		Migrator_CLI_Utils::set_importing_const();
+
 		$coupons = new Migrator_CLI_Coupons();
 		$coupons->import();
 	}

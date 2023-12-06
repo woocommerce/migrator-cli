@@ -59,7 +59,7 @@ class Migrator_CLI_Subscriptions {
 	 */
 	private function get_data_from_file( $file ) {
 		if ( ! is_file( $file ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' . 'File not found: ' . $file ) );
+			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'File not found: ' . $file );
 			die();
 		}
 

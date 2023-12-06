@@ -25,11 +25,6 @@ require_once __DIR__ . '/includes/class-migrator-cli-payment-methods.php';
 require_once __DIR__ . '/includes/class-migrator-cli-products.php';
 require_once __DIR__ . '/includes/class-migrator-cli-subscriptions.php';
 
-// Todo: Define the WP_IMPORTING const when commands are executed
-//if ( ! defined( WP_IMPORTING ) ) {
-//  define( 'WP_IMPORTING', true );
-//}
-
 add_action(
 	'cli_init',
 	function () {

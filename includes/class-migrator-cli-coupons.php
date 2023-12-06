@@ -313,12 +313,12 @@ class Migrator_CLI_Coupons {
 				$meta_values[] = $shopify_product->legacyResourceId;
 			}
 
-			add_filter( 'woocommerce_product_data_store_cpt_get_products_query', [ $this, 'handle_custom_query_var' ], 10, 2 );
+			add_filter( 'woocommerce_product_data_store_cpt_get_products_query', array( $this, 'handle_custom_query_var' ), 10, 2 );
 
 			$products = wc_get_products(
 				array(
-					'limit' => -1,
-					'_original_product_id' => $meta_values
+					'limit'                => -1,
+					'_original_product_id' => $meta_values,
 				)
 			);
 
@@ -334,8 +334,8 @@ class Migrator_CLI_Coupons {
 	public function handle_custom_query_var( $query, $query_vars ) {
 		if ( ! empty( $query_vars['_original_product_id'] ) ) {
 			$query['meta_query'][] = array(
-				'key' => '_original_product_id',
-				'value' => $query_vars['_original_product_id'],
+				'key'     => '_original_product_id',
+				'value'   => $query_vars['_original_product_id'],
 				'compare' => 'IN',
 			);
 		}

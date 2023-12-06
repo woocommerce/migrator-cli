@@ -102,4 +102,10 @@ class Migrator_CLI_Utils {
 
 		return $next_link;
 	}
+
+	public static function set_importing_const() {
+		if ( ! defined( 'WP_IMPORTING' ) ) {
+			define( 'WP_IMPORTING', true );
+		}
+	}
 }
