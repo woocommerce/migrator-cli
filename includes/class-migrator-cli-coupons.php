@@ -304,7 +304,45 @@ class Migrator_CLI_Coupons {
 		if ( isset( $discount->minimumRequirement->greaterThanOrEqualToSubtotal ) ) {
 			$coupon->set_minimum_amount( $discount->minimumRequirement->greaterThanOrEqualToSubtotal->amount );
 		}
+
+		// Products
+		if ( isset( $discount->customerGets->items ) ) {
+			$meta_values = array();
+
+			foreach ( $discount->customerGets->items->products->nodes as $shopify_product ) {
+				$meta_values[] = $shopify_product->legacyResourceId;
+			}
+
+			add_filter( 'woocommerce_product_data_store_cpt_get_products_query', [ $this, 'handle_custom_query_var' ], 10, 2 );
+
+			$products = wc_get_products(
+				array(
+					'limit' => -1,
+					'_original_product_id' => $meta_values
+				)
+			);
+
+			$product_ids = array();
+			foreach ( $products as $product ) {
+				$product_ids[] = $product->get_id();
+			}
+
+			$coupon->set_product_ids( $product_ids );
+		}
 	}
+
+	public function handle_custom_query_var( $query, $query_vars ) {
+		if ( ! empty( $query_vars['_original_product_id'] ) ) {
+			$query['meta_query'][] = array(
+				'key' => '_original_product_id',
+				'value' => $query_vars['_original_product_id'],
+				'compare' => 'IN',
+			);
+		}
+
+		return $query;
+	}
+
 
 	private function set_limits( $coupon, $discount ) {
 		// Limited to specific user emails
