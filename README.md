@@ -127,7 +127,16 @@
 ```
 
 ```
-wp import_stripe_data_into_woopayments
+wp import_stripe_data_into_woopayments [--limit]
+
+  OPTIONS
+  
+  [--limit]
+  : Limit the total number of coupons to process. This won't count the sub codes. Default to 1000.
+
+  Example
+  wp import_stripe_data_into_woopayments --limit=1  
+  
 ```
 
 

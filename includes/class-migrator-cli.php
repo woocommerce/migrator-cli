@@ -155,7 +155,7 @@ class Migrator_CLI extends WP_CLI_Command {
 
 	/**
 	 * Migrate subscriptions from Skio to WooCommerce.
-	 * This funciton will import from json files not from the api.
+	 * This function will import from json files not from the api.
 	 *
 	 * ## OPTIONS
 	 *
@@ -186,16 +186,19 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * It will not create the site customer it will just update
 	 * one that matches the email in Stripe.
 	 *
+	 *  [--limit]
+	 *  : Limit the total number of coupons to process. This won't count the sub codes. Default to 1000.
+	 *
 	 * Example:
-	 * wp import_stripe_data_into_woopayments
+	 * wp import_stripe_data_into_woopayments --limit=1
 	 *
 	 * @when after_wp_load
 	 */
-	public function import_stripe_data_into_woopayments() {
+	public function import_stripe_data_into_woopayments( $args, $assoc_args ) {
 		Migrator_CLI_Utils::set_importing_const();
 
 		$payment_methods = new Migrator_CLI_Payment_Methods();
-		$payment_methods->import_stripe_data_into_woopayments();
+		$payment_methods->import_stripe_data_into_woopayments( $assoc_args );
 	}
 
 	/**
@@ -228,7 +231,7 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * ## Options
 	 *
 	 *  [--limit]
-	 *  : Limit the total number of coupons to process. This won't count the sub codes.
+	 *  : Limit the total number of coupons to process. This won't count the sub codes. Default to 1000.
 	 *
 	 *   [--cursor]
 	 *   : The cursor of the last discount to start importing from

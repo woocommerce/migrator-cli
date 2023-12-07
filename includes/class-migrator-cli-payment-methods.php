@@ -16,7 +16,7 @@ class Migrator_CLI_Payment_Methods {
 	 * It uses the WooPayments connection to the server to download the data.
 	 * So WooPayments needs to be installed and configured.
 	 */
-	public function import_stripe_data_into_woopayments() {
+	public function import_stripe_data_into_woopayments( $assoc_args ) {
 
 		Migrator_CLI_Utils::health_check();
 
@@ -25,11 +25,28 @@ class Migrator_CLI_Payment_Methods {
 			die();
 		}
 
-		$request          = \WCPay\Core\Server\Request::get( WC_Payments_API_Client::CUSTOMERS_API );
-		$result           = $request->send();
-		$stripe_customers = $result['data'];
+		$limit   = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
+		$perpage = min( 100, $limit );
 
-		$this->import_customers_data( $stripe_customers );
+		$starting_after = '';
+
+		do {
+			$request = Migrator_CLI_WooPayments_Customers::create();
+			$request->set_per_page( $perpage );
+
+			if ( $starting_after ) {
+				$request->set_starting_after( $starting_after );
+			}
+
+			$result           = $request->send();
+			$stripe_customers = $result['data'];
+
+			$this->import_customers_data( $stripe_customers, $limit );
+
+			$limit         -= $perpage;
+			$starting_after = end( $stripe_customers )['id'];
+		} while ( $result['has_more'] && $limit > 0 );
+
 		WP_CLI::line( 'Done' );
 	}
 
@@ -38,9 +55,10 @@ class Migrator_CLI_Payment_Methods {
 	 *
 	 * @param array $stripe_customers the customers found in Stripe.
 	 */
-	private function import_customers_data( $stripe_customers ) {
-		foreach ( $stripe_customers as $stripe_customer ) {
+	private function import_customers_data( $stripe_customers, $limit ) {
+		$imported = 0;
 
+		foreach ( $stripe_customers as $stripe_customer ) {
 			$user = get_user_by( 'email', $stripe_customer['email'] );
 			if ( ! $user || is_wp_error( $user ) || 0 === $user->ID ) {
 				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Customer not found: ' . $stripe_customer['email'] );
@@ -50,6 +68,12 @@ class Migrator_CLI_Payment_Methods {
 			WP_CLI::line( 'Processing customer : ' . $stripe_customer['email'] . '(' . $user->ID . ')' );
 			update_user_option( $user->ID, self::get_customer_id_option(), $stripe_customer['id'] );
 			$this->import_payment_methods( $stripe_customer['id'], $user );
+
+			++$imported;
+
+			if ( $imported >= $limit ) {
+				return;
+			}
 		}
 	}
 
