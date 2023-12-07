@@ -103,6 +103,10 @@ class Migrator_CLI_Utils {
 		return $next_link;
 	}
 
+	/**
+	 * Sets the WP_IMPORTING flag to true to prevent
+	 * sending emails and other communications.
+	 */
 	public static function set_importing_const() {
 		if ( ! defined( 'WP_IMPORTING' ) ) {
 			define( 'WP_IMPORTING', true );

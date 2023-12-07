@@ -220,6 +220,17 @@ class Migrator_CLI extends WP_CLI_Command {
 		$payment_methods->update_orders_and_subscriptions_payment_methods( $assoc_args );
 	}
 
+	/**
+	 * Imports the coupons from Shopify.
+	 * Only imports Shipping and discount coupons.
+	 * No support for Buy X get Y yet.
+	 *
+	 * Example:
+	 *
+	 * wp migrator coupons
+	 *
+	 * @when after_wp_load
+	 */
 	public function coupons() {
 		Migrator_CLI_Utils::set_importing_const();
 

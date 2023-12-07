@@ -4,6 +4,10 @@
 
 class Migrator_CLI_Coupons {
 
+	/**
+	 * Imports the coupons/discounts from Shopify into Woo.
+	 * Not all types of discounts are supported yet.
+	 */
 	public function import() {
 		$cursor = '';
 
@@ -13,7 +17,10 @@ class Migrator_CLI_Coupons {
 			$cursor        = $discount->cursor;
 			$discount      = $discount->node->codeDiscount;
 
-			$this->create_or_update_coupon( $discount );
+			if ( $discount ) {
+				$this->create_or_update_coupon( $discount );
+			}
+
 
 			// Prevents api throttling.
 			sleep( 1 );
@@ -228,45 +235,76 @@ class Migrator_CLI_Coupons {
 		return $response_data;
 	}
 
-	private function create_or_update_coupon( $discount ) {
+	/**
+	 * Creates or updates a coupon.
+	 *
+	 * @param object $discount the shopify discount data.
+	 * @param object $child_code the child coupon code.
+	 */
+	private function create_or_update_coupon( $discount, $child_code = null ) {
 		WP_CLI::line( '=========================================================================' );
-		WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Processing coupon: ' . $discount->title );
 
-		$coupon = new WC_Coupon( $discount->title );
+		if ( $child_code ) {
+			$coupon_code = $child_code->code;
+			$usage       = $child_code->asyncUsageCount;
+		} else {
+			$coupon_code = $discount->title;
+			$usage       = $discount->asyncUsageCount;
+
+			if ( isset( $discount->codes->nodes[0] ) ) {
+				$coupon_code = $discount->codes->nodes[0]->code;
+				unset( $discount->codes->nodes[0] );
+			}
+		}
+
+		WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Processing coupon: ' . $coupon_code );
+		$coupon = new WC_Coupon( $coupon_code );
 
 		if ( 0 === $coupon->get_id() ) {
-			WP_CLI::line( "Coupon didn't exists yet creating a new one" );
+			WP_CLI::line( "Coupon didn't exist yet creating a new one" );
 		} else {
 			WP_CLI::line( 'Coupon already exists updating' );
 		}
 
 		$this->cleanup( $coupon );
 
-		$coupon->set_code( $discount->title );
+		$coupon->set_code( $coupon_code );
 		$coupon->set_description( $discount->summary );
 		$coupon->set_date_created( $discount->createdAt );
 		$coupon->set_date_expires( $discount->endsAt );
 		$coupon->set_date_modified( $discount->updatedAt );
 		$coupon->set_usage_limit( $discount->usageLimit );
-		$coupon->set_usage_count( $discount->asyncUsageCount );
+		$coupon->set_usage_count( $usage );
 		$coupon->set_usage_limit_per_user( true === $discount->appliesOncePerCustomer ? 1 : null );
-
-		if ( new DateTime( $discount->startsAt ) > ( new DateTime( 'now' ) ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Woo does not support coupons with a start date in the future.' );
-		}
-
-		if ( 'SHIPPING' === $discount->discountClass ) {
-			$coupon->set_free_shipping( 1 );
-		}
 
 		$this->check_unsupported_rules( $discount );
 		$this->set_restrictions( $coupon, $discount );
 		$this->set_limits( $coupon, $discount );
 		$this->set_discount_type( $coupon, $discount );
 
+		if ( 'SHIPPING' === $discount->discountClass ) {
+			$coupon->set_free_shipping( 1 );
+		}
+
 		$coupon->save();
+
+		if ( ! $child_code ) {
+			foreach ( $discount->codes->nodes as $code ) {
+				$this->create_or_update_coupon( $discount, $code );
+			}
+
+			if ( count( $discount->codes->nodes ) >= 99 ) {
+				WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Only the first 100 codes were processed for this coupon.' );
+			}
+		}
 	}
 
+	/**
+	 * Cleans up a coupon before it can be updated
+	 * to prevent the wrong data from being saved.
+	 *
+	 * @param WC_Coupon $coupon the Woo coupon.
+	 */
 	private function cleanup( $coupon ) {
 		$coupon->set_minimum_amount( null );
 		$coupon->set_email_restrictions( null );
@@ -275,7 +313,17 @@ class Migrator_CLI_Coupons {
 		$coupon->set_individual_use( true );
 	}
 
+	/**
+	 * Checks rules that Woo does not support.
+	 *
+	 * @param object $discount the shopify discount data.
+	 */
 	private function check_unsupported_rules( $discount ) {
+
+		if ( new DateTime( $discount->startsAt ) > ( new DateTime( 'now' ) ) ) {
+			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Woo does not support coupons with a start date in the future.' );
+		}
+
 		if ( isset( $discount->minimumRequirement->greaterThanOrEqualToQuantity ) ) {
 			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Minimum product quantity not supported by Woo.' );
 		}
@@ -299,6 +347,13 @@ class Migrator_CLI_Coupons {
 		}
 	}
 
+	/**
+	 * Sets the coupon restrictions like minimum total,
+	 * Products that the coupon applies.
+	 *
+	 * @param WC_Coupon $coupon the Woo coupon.
+	 * @param object $discount the Shopify discount data.
+	 */
 	private function set_restrictions( $coupon, $discount ) {
 		// Minimum total
 		if ( isset( $discount->minimumRequirement->greaterThanOrEqualToSubtotal ) ) {
@@ -306,7 +361,7 @@ class Migrator_CLI_Coupons {
 		}
 
 		// Products
-		if ( isset( $discount->customerGets->items ) ) {
+		if ( isset( $discount->customerGets->items ) && true !== $discount->customerGets->items->allItems ) {
 			$meta_values = array();
 
 			foreach ( $discount->customerGets->items->products->nodes as $shopify_product ) {
@@ -331,6 +386,13 @@ class Migrator_CLI_Coupons {
 		}
 	}
 
+	/**
+	 * Adds a customer query var to search for products with one of the shopify products ids.
+	 *
+	 * @param array $query the query.
+	 * @param array $query_vars the query vars.
+	 * @return array
+	 */
 	public function handle_custom_query_var( $query, $query_vars ) {
 		if ( ! empty( $query_vars['_original_product_id'] ) ) {
 			$query['meta_query'][] = array(
@@ -344,6 +406,12 @@ class Migrator_CLI_Coupons {
 	}
 
 
+	/**
+	 * Sets coupons limits like user emails and maximum number of cycles.
+	 *
+	 * @param WC_Coupon $coupon the Woo coupon.
+	 * @param object $discount the shopify discount data.
+	 */
 	private function set_limits( $coupon, $discount ) {
 		// Limited to specific user emails
 		if ( isset( $discount->customerSelection->customers ) ) {
@@ -359,6 +427,15 @@ class Migrator_CLI_Coupons {
 		$coupon->update_meta_data( '_wcs_number_payments', $discount->recurringCycleLimit );
 	}
 
+	/**
+	 * Sets the discount type. Shopify discount types are not a perfect match
+	 * so they need to be loosely converted.
+	 * When a discount is set to be used in both subscriptions and one time purchases
+	 * converts them to subscriptions only.
+	 *
+	 * @param WC_Coupon $coupon the Woo coupon.
+	 * @param object $discount the Shopify discount data.
+	 */
 	private function set_discount_type( WC_Coupon $coupon, $discount ) {
 		$needs_limit = $discount->recurringCycleLimit && true === $discount->customerGets->appliesOnSubscription;
 		$can_limit   = true;
@@ -411,9 +488,6 @@ class Migrator_CLI_Coupons {
 		if ( true === $discount->customerGets->appliesOnSubscription && true === $discount->customerGets->appliesOnOneTimePurchase ) {
 			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'This coupon is set to be used both in one time purchases and subscriptions in Shopify but Woo does not support that. Setting it up as a subscription coupon.' );
 		}
-
-		// Todo: Buy x get y
-		// Todo: Shipping
 	}
 }
 
