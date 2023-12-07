@@ -143,3 +143,21 @@ wp import_stripe_data_into_woopayments
  
   wp migrator add_woopayments_migration_data --migration_file=<absolute_path>	 
 ```
+
+```
+ 
+## Options
+	wp migrator coupons [--limit] [--cursor]
+	
+  OPTIONS	
+ 
+  [--limit]
+  : Limit the total number of coupons to process. This won't count the sub codes. Default to 1000.
+
+  [--cursor]
+  : The cursor of the last discount to start importing from
+
+  Example:
+
+  wp migrator coupons --limit=1 --cursor=<cursor>
+```

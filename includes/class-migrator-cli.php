@@ -225,16 +225,24 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * Only imports Shipping and discount coupons.
 	 * No support for Buy X get Y yet.
 	 *
+	 * ## Options
+	 *
+	 *  [--limit]
+	 *  : Limit the total number of coupons to process. This won't count the sub codes.
+	 *
+	 *   [--cursor]
+	 *   : The cursor of the last discount to start importing from
+	 *
 	 * Example:
 	 *
-	 * wp migrator coupons
+	 * wp migrator coupons --limit=1 --cursor=<cursor>
 	 *
 	 * @when after_wp_load
 	 */
-	public function coupons() {
+	public function coupons( $args, $assoc_args ) {
 		Migrator_CLI_Utils::set_importing_const();
 
 		$coupons = new Migrator_CLI_Coupons();
-		$coupons->import();
+		$coupons->import( $assoc_args );
 	}
 }

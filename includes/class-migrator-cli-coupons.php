@@ -8,8 +8,10 @@ class Migrator_CLI_Coupons {
 	 * Imports the coupons/discounts from Shopify into Woo.
 	 * Not all types of discounts are supported yet.
 	 */
-	public function import() {
-		$cursor = '';
+	public function import( $assoc_args ) {
+		$imported = 0;
+		$limit    = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
+		$cursor   = isset( $assoc_args['cursor'] ) ? $assoc_args['cursor'] : '';
 
 		do {
 			$response_data = $this->get_next_discount( $cursor );
@@ -21,10 +23,12 @@ class Migrator_CLI_Coupons {
 				$this->create_or_update_coupon( $discount );
 			}
 
+			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Cursor: ' . $cursor );
 
 			// Prevents api throttling.
 			sleep( 1 );
-		} while ( $response_data->data->codeDiscountNodes->pageInfo->hasNextPage );
+			++$imported;
+		} while ( $response_data->data->codeDiscountNodes->pageInfo->hasNextPage && $imported < $limit );
 
 		WP_CLI::line( WP_CLI::colorize( '%GDone%n' ) );
 	}
