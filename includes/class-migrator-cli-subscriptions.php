@@ -238,8 +238,12 @@ class Migrator_CLI_Subscriptions {
 			$subscription->remove_item( $subscription_item->get_id() );
 		}
 
-		foreach ( $latest_order->get_items( array( 'line_item', 'tax', 'shipping', 'coupon' ) ) as $item ) {
+		foreach ( $latest_order->get_items( array( 'line_item', 'tax', 'shipping' ) ) as $item ) {
 			$this->clone_item_to_subscription( $item, $subscription );
+		}
+
+		foreach ( $latest_order->get_items( array( 'coupon' ) ) as $item ) {
+			$subscription->apply_coupon( $item->get_code() );
 		}
 	}
 
