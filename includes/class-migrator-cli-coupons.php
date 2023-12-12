@@ -315,6 +315,8 @@ class Migrator_CLI_Coupons {
 		$coupon->set_free_shipping( null );
 		$coupon->set_discount_type( 'fixed_cart' );
 		$coupon->set_individual_use( true );
+		$coupon->update_meta_data( '_apply_to_first_cycle_only', 'no' );
+		$coupon->update_meta_data( '_allow_subscriptions', 'no' );
 	}
 
 	/**
@@ -441,18 +443,42 @@ class Migrator_CLI_Coupons {
 	 * @param object $discount the Shopify discount data.
 	 */
 	private function set_discount_type( WC_Coupon $coupon, $discount ) {
-		$needs_limit = $discount->recurringCycleLimit && true === $discount->customerGets->appliesOnSubscription;
-		$can_limit   = true;
+		$is_subscription_and_one_time = false;
+
+		// Coupons used in both subscriptions and one time purchases.
+		if ( true === $discount->customerGets->appliesOnSubscription && true === $discount->customerGets->appliesOnOneTimePurchase ) {
+			if ( class_exists( 'Mixed_Coupons' ) ) {
+				$is_subscription_and_one_time = true;
+				$coupon->update_meta_data( '_allow_subscriptions', 'yes' );
+
+				if ( $discount->recurringCycleLimit > 1 ) {
+					WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Coupons need to be limited to one cycle only or be unlimited. Setting it up to unlimited' );
+					$coupon->update_meta_data( '_apply_to_first_cycle_only', 'no' );
+				} elseif ( 1 === $discount->recurringCycleLimit ) {
+					$coupon->update_meta_data( '_apply_to_first_cycle_only', 'yes' );
+				}
+			} else {
+				/**
+				 * When both appliesOnOneTimePurchase and appliesOnSubscription
+				 * are true Shopify coupons can be applied to both one time purchases and subscriptions
+				 * but Woo only supports one or the other.
+				 * As coupons are used to renewal subscriptions we set them as subscription coupons
+				 * if appliesOnSubscription is set to true.
+				 * This will cause problems for people that try to use those coupons for one time
+				 * purchases after the migration.
+				 */
+				WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'This coupon is set to be used both in one time purchases and subscriptions in Shopify but Woo does not support that. Setting it up as a subscriptions only coupon.' );
+				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'If you want to support both install: https://github.com/woocommerce/woo-mixed-coupons' );
+			}
+		}
 
 		// Percent discount.
 		if ( isset( $discount->customerGets->value->percentage ) ) {
 			$coupon->set_amount( $discount->customerGets->value->percentage * 100 );
 			$coupon->set_discount_type( 'percent' );
-			$can_limit = false;
 
-			if ( true === $discount->customerGets->appliesOnSubscription ) {
+			if ( ! $is_subscription_and_one_time && true === $discount->customerGets->appliesOnSubscription ) {
 				$coupon->set_discount_type( 'recurring_percent' );
-				$needs_limit = false;
 			}
 		}
 
@@ -461,36 +487,14 @@ class Migrator_CLI_Coupons {
 			$coupon->set_amount( $discount->customerGets->value->amount->amount );
 
 			$coupon->set_discount_type( 'fixed_cart' );
-			$can_limit = false;
 
 			if ( true === $discount->customerGets->value->appliesOnEachItem ) {
 				$coupon->set_discount_type( 'fixed_product' );
 			}
 
-			if ( true === $discount->customerGets->appliesOnSubscription ) {
+			if ( ! $is_subscription_and_one_time && true === $discount->customerGets->appliesOnSubscription ) {
 				$coupon->set_discount_type( 'recurring_fee' );
-				$needs_limit = false;
 			}
-		}
-
-		// Either recurring_fee or recurring_percent would work when there is a recurringCycleLimit
-		if ( $needs_limit && $can_limit ) {
-			$coupon->set_discount_type( 'recurring_fee' );
-		} elseif ( $needs_limit && ! $can_limit ) {
-			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Can`t limit a coupon usage to a single cycle when it`s not a subscription coupon' );
-		}
-
-		/**
-		 * When both appliesOnOneTimePurchase and appliesOnSubscription
-		 * are true Shopify coupons can be applied to both one time purchases and subscriptions
-		 * but Woo only supports one or the other.
-		 * As coupons are used to renewal subscriptions we set them as subscription coupons
-		 * if appliesOnSubscription is set to true.
-		 * This will cause problems for people that try to use those coupons for one time
-		 * purchases after the migration.
-		 */
-		if ( true === $discount->customerGets->appliesOnSubscription && true === $discount->customerGets->appliesOnOneTimePurchase ) {
-			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'This coupon is set to be used both in one time purchases and subscriptions in Shopify but Woo does not support that. Setting it up as a subscription coupon.' );
 		}
 	}
 }

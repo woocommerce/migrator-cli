@@ -781,7 +781,7 @@ class Migrator_CLI_Orders {
 	 */
 	private function get_transaction_with_payment_method_data( $transactions ) {
 		foreach ( $transactions as $transaction ) {
-			if ( in_array( $transaction->kind, array( 'capture', 'sale' ), true ) && 'failure' !== $transaction->status ) {
+			if ( in_array( $transaction->kind, array( 'capture', 'authorization' ), true ) && 'failure' !== $transaction->status ) {
 				return $transaction;
 			}
 		}
