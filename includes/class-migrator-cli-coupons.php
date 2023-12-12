@@ -330,8 +330,8 @@ class Migrator_CLI_Coupons {
 			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Woo does not support coupons with a start date in the future.' );
 		}
 
-		if ( isset( $discount->minimumRequirement->greaterThanOrEqualToQuantity ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Minimum product quantity not supported by Woo.' );
+		if ( isset( $discount->minimumRequirement->greaterThanOrEqualToQuantity ) && ! defined( 'WEBTOFFEE_SMARTCOUPON_VERSION' ) ) {
+			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Minimum product quantity not supported by Woo. Install the free WebTofee`s Smart Coupon For WooCommerce Coupon plugin' );
 		}
 
 		if ( isset( $discount->customerSelection->segments ) ) {
@@ -370,6 +370,10 @@ class Migrator_CLI_Coupons {
 		if ( isset( $discount->customerGets->items ) && true !== $discount->customerGets->items->allItems ) {
 			$meta_values = array();
 
+			if ( count( $discount->customerGets->items->productVariants->nodes ) ) {
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Product variants not supported yet' );
+			}
+
 			foreach ( $discount->customerGets->items->products->nodes as $shopify_product ) {
 				$meta_values[] = $shopify_product->legacyResourceId;
 			}
@@ -389,6 +393,14 @@ class Migrator_CLI_Coupons {
 			}
 
 			$coupon->set_product_ids( $product_ids );
+		}
+
+		// Rules Supported by WebTofee`s Smart Coupons for WooCommerce.
+		if ( defined( 'WEBTOFFEE_SMARTCOUPON_VERSION' ) ) {
+			// Minimum product quantity.
+			if ( isset( $discount->minimumRequirement->greaterThanOrEqualToQuantity ) ) {
+				$coupon->update_meta_data( '_wt_min_matching_product_qty', $discount->minimumRequirement->greaterThanOrEqualToQuantity );
+			}
 		}
 	}
 
