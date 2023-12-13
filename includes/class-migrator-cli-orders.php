@@ -745,7 +745,7 @@ class Migrator_CLI_Orders {
 		$response     = Migrator_CLI_Utils::rest_request( 'orders/' . $shopify_order->id . '/transactions.json' );
 		$transactions = json_decode( wp_remote_retrieve_body( $response ) );
 
-		if ( ! $transactions ) {
+		if ( ! $transactions->transactions ) {
 			WP_CLI::line( 'No transactions to import for this order.' );
 			return;
 		}
