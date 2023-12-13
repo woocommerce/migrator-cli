@@ -87,14 +87,16 @@ class Migrator_CLI_Orders {
 				// Check if the order exists in WooCommerce.
 				$woo_order = $this->get_corresponding_woo_order( $shopify_order );
 
+				WP_CLI::line( '' );
+
 				if ( $woo_order ) {
-					WP_CLI::line( sprintf( 'Order %s already exists (%s). %s...', $shopify_order->order_number, $woo_order->get_id(), $no_update ? 'Skipping' : 'Updating' ) );
+					WP_CLI::line( sprintf( 'Order %s already exists (%s). %s...', $shopify_order->id, $woo_order->get_id(), $no_update ? 'Skipping' : 'Updating' ) );
 
 					if ( $no_update ) {
 						continue;
 					}
 				} else {
-					WP_CLI::line( sprintf( 'Order %s does not exist. Creating...', $shopify_order->order_number ) );
+					WP_CLI::line( sprintf( 'Order %s does not exist. Creating...', $shopify_order->id ) );
 				}
 
 				$this->create_or_update_woo_order( $shopify_order, $woo_order, $mode );
