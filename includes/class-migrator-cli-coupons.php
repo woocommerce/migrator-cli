@@ -19,8 +19,12 @@ class Migrator_CLI_Coupons {
 			$cursor        = $discount->cursor;
 			$discount      = $discount->node->codeDiscount;
 
-			if ( $discount ) {
+
+
+			if ( ! empty( (array) $discount ) ) {
 				$this->create_or_update_coupon( $discount );
+			} else {
+				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Discount was empty. Probably unsupported type: ' );
 			}
 
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Cursor: ' . $cursor );
@@ -232,6 +236,10 @@ class Migrator_CLI_Coupons {
 
 		$response_data = json_decode( wp_remote_retrieve_body( $response ) );
 
+		if ( isset( $response_data->errors ) ) {
+			WP_CLI::error( 'API Error: ' . $response_data->errors[0]->message );
+		}
+
 		if ( empty( $response_data->data->codeDiscountNodes ) ) {
 			WP_CLI::error( 'No coupons found.' );
 		}
@@ -370,7 +378,7 @@ class Migrator_CLI_Coupons {
 		if ( isset( $discount->customerGets->items ) && true !== $discount->customerGets->items->allItems ) {
 			$meta_values = array();
 
-			if ( count( $discount->customerGets->items->productVariants->nodes ) ) {
+			if ( isset( $discount->customerGets->items->productVariants ) && count( $discount->customerGets->items->productVariants ) ) {
 				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Product variants not supported yet' );
 			}
 
