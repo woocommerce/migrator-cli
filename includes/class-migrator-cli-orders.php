@@ -761,8 +761,16 @@ class Migrator_CLI_Orders {
 		switch ( $transaction->gateway ) {
 			case 'shopify_payments':
 				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $transaction->gateway );
-				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->payment_method );
-				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4, substr( $transaction->payment_details->credit_card_number, -4 ) );
+				$order->update_meta_data(Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4, substr( $transaction->payment_details->credit_card_number, -4 ) );
+
+				if ( isset( $transaction->receipt->payment_method ) ) {
+					$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->payment_method );
+				} elseif ( isset( $transaction->receipt->source->id ) ) {
+					$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->source->id );
+				} else {
+					WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Payment method not found in transaction' );
+				}
+
 				break;
 			// 'paypal' not 'PayPal' they are two different gateways.
 			case 'paypal':
