@@ -302,6 +302,8 @@ class Migrator_CLI_Payment_Methods {
 					case 'shopify_payments':
 						$this->process_shopify_payments( $order );
 						break;
+					case 'manual':
+						break;
 					case null:
 						WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Payment gateway not set' );
 						break;
