@@ -61,7 +61,7 @@ class Migrator_CLI_Coupons {
 											appliesOncePerCustomer
 											asyncUsageCount
 											codeCount
-											codes(first: 100) {
+											codes(first: 200) {
 												nodes {
 													code
 													id
@@ -301,12 +301,12 @@ class Migrator_CLI_Coupons {
 		$coupon->save();
 
 		if ( ! $child_code ) {
-			foreach ( $discount->codes->nodes as $code ) {
-				$this->create_or_update_coupon( $discount, $code );
+			if ( count( $discount->codes->nodes ) >= 199 ) {
+				WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Only the first 200 codes will be processed for this coupon.' );
 			}
 
-			if ( count( $discount->codes->nodes ) >= 99 ) {
-				WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Only the first 100 codes were processed for this coupon.' );
+			foreach ( $discount->codes->nodes as $code ) {
+				$this->create_or_update_coupon( $discount, $code );
 			}
 		}
 	}
