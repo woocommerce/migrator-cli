@@ -778,8 +778,6 @@ class Migrator_CLI_Orders {
 
 				if ( isset( $transaction->receipt->billing_agreement_id ) && $transaction->receipt->billing_agreement_id ) {
 					$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->billing_agreement_id );
-				} else {
-					WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Billing agreement not found in transaction' );
 				}
 				break;
 			case 'manual':
