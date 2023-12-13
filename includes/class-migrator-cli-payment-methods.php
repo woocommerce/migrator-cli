@@ -302,6 +302,11 @@ class Migrator_CLI_Payment_Methods {
 					case 'shopify_payments':
 						$this->process_shopify_payments( $order );
 						break;
+					case 'paypal':
+						if ( ! $order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY ) ) {
+							WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Paypal subscription does not have a billing agreement. Renewals will fail' );
+						}
+						break;
 					case 'manual':
 						break;
 					case null:
