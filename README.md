@@ -141,16 +141,23 @@ wp import_stripe_data_into_woopayments [--limit]
 
 
 ```
-  wp migrator add_woopayments_migration_data [--migration_file]
+  wp migrator add_woopayments_migration_data [--migration_file] [--order-ids] [--subscription-ids]
 
   OPTIONS
 
   [--migration_file]
   : The csv file stripe created containing the mapping between old and new data
  
+  [--order-ids]
+  : A list of Woo order ids to be processed. Limited to 100.
+	 
+  [--subscription-ids]
+  : A list of Woo subscription ids to be processed. Limited to 100.
+	 
+ 
   Example:
  
-  wp migrator add_woopayments_migration_data --migration_file=<absolute_path>	 
+  wp migrator add_woopayments_migration_data --migration_file=<absolute_path> --order-ids="1,2,3" --subscription-ids="3,4,5"	 
 ```
 
 ```

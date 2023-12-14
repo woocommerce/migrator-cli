@@ -143,12 +143,15 @@ class Migrator_CLI_Payment_Methods {
 			die();
 		}
 
+		$order_ids        = isset( $assoc_args['order-ids'] ) ? explode( ',', $assoc_args['order-ids'] ) : null;
+		$subscription_ids = isset( $assoc_args['subscription-ids'] ) ? explode( ',', $assoc_args['order-ids'] ) : null;
+
 		WP_CLI::line( 'Updating customers' );
 		$this->add_pan_import_data( $assoc_args['migration_file'] );
 		WP_CLI::line( 'Updating orders' );
-		$this->update_orders_or_subscriptions( 'shop_order' );
+		$this->update_orders_or_subscriptions( 'shop_order', $order_ids );
 		WP_CLI::line( 'Updating subscriptions' );
-		$this->update_orders_or_subscriptions( 'shop_subscription' );
+		$this->update_orders_or_subscriptions( 'shop_subscription', $subscription_ids );
 	}
 
 	/**
@@ -281,18 +284,22 @@ class Migrator_CLI_Payment_Methods {
 	 *
 	 * @param string $type shop_order|shop_subscription.
 	 */
-	private function update_orders_or_subscriptions( $type ) {
+	private function update_orders_or_subscriptions( $type, $ids ) {
 		$page = 1;
 
 		do {
-			$orders = wc_get_orders(
-				array(
-					'type'   => $type,
-					'status' => 'all',
-					'limit'  => 100,
-					'paged'  => $page,
-				)
+			$query = array(
+				'type'   => $type,
+				'status' => 'all',
+				'limit'  => 100,
+				'paged'  => $page,
 			);
+
+			if ( $ids ) {
+				$query['post__in'] = $ids;
+			}
+
+			$orders = wc_get_orders( $query );
 
 			/** @var WC_Order|WC_Subscription $order */
 			foreach ( $orders as $order ) {
