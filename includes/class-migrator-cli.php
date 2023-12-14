@@ -208,11 +208,17 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * ## Options
 	 *
 	 * [--migration_file]
-	 * : The csv file stripe created containing the mapping between old and data
+	 * : The csv file stripe created containing the mapping between old and data.
+	 *
+	 * [--order-ids]
+	 * : A list of Woo order ids to be processed. Limited to 100.
+	 *
+	 *  [--subscription-ids]
+	 *  : A list of Woo subscription ids to be processed. Limited to 100.
 	 *
 	 * Example:
 	 *
-	 * wp migrator add_woopayments_migration_data --migration_file=<absolute_path>
+	 * wp migrator add_woopayments_migration_data --migration_file=<absolute_path> --order-ids="1,2,3" --subscription-ids="3,4,5"
 	 *
 	 * @when after_wp_load
 	 */
