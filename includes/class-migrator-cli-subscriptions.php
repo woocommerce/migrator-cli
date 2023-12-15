@@ -117,7 +117,7 @@ class Migrator_CLI_Subscriptions {
 
 			$existing_orders = wc_get_orders( $args );
 
-			if ( ! $existing_orders ) {
+			if ( ! $existing_orders && 'CANCELLED' !== $skio_subscription['status'] ) {
 				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Woo Order not found for Skio Subscription: ' . $skio_subscription['subscriptionId'] );
 				continue;
 			}
