@@ -311,11 +311,27 @@ class Migrator_CLI_Subscriptions {
 	 */
 	private function set_subscription_status( $subscription, $skio_subscription ) {
 
-		if ( ! in_array( $skio_subscription['status'], array( 'ACTIVE', 'CANCELLED' ), true ) ) {
+		if ( ! in_array( $skio_subscription['status'], array( 'ACTIVE', 'CANCELLED', 'FAILED' ), true ) ) {
 			WP_CLI::line( WP_CLI::colorize( '%YWarning%n' ) . 'Unknown subscription status: ' . $skio_subscription['status'] );
 		}
 
 		$subscription->set_status( mb_strtolower( $skio_subscription['status'] ) );
+
+		/**
+		 * Skio does not store failed orders.
+		 * Set it as active to try again so the customer can update the payment method.
+		 */
+		if ( 'FAILED' === $skio_subscription['status'] ) {
+			$subscription->set_status( 'active' );
+
+			$next_payment = date_create( $skio_subscription['nextBillingDate'] );
+			$next_payment = date_format( $next_payment, 'Y-m-d H:i:s' );
+			$subscription->update_dates(
+				array(
+					'next_payment' => $next_payment,
+				)
+			);
+		}
 
 		if ( 'ACTIVE' === $skio_subscription['status'] && isset( $skio_subscription['nextBillingDate'] ) ) {
 			$next_payment = date_create( $skio_subscription['nextBillingDate'] );
