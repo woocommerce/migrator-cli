@@ -323,17 +323,9 @@ class Migrator_CLI_Subscriptions {
 		 */
 		if ( 'FAILED' === $skio_subscription['status'] ) {
 			$subscription->set_status( 'active' );
-
-			$next_payment = date_create( $skio_subscription['nextBillingDate'] );
-			$next_payment = date_format( $next_payment, 'Y-m-d H:i:s' );
-			$subscription->update_dates(
-				array(
-					'next_payment' => $next_payment,
-				)
-			);
 		}
 
-		if ( 'ACTIVE' === $skio_subscription['status'] && isset( $skio_subscription['nextBillingDate'] ) ) {
+		if ( in_array( $skio_subscription['status'], array( 'ACTIVE', 'FAILED' ), true ) && isset( $skio_subscription['nextBillingDate'] ) ) {
 			$next_payment = date_create( $skio_subscription['nextBillingDate'] );
 			$next_payment = date_format( $next_payment, 'Y-m-d H:i:s' );
 			$subscription->update_dates(
