@@ -19,8 +19,6 @@ class Migrator_CLI_Coupons {
 			$cursor        = $discount->cursor;
 			$discount      = $discount->node->codeDiscount;
 
-
-
 			if ( ! empty( (array) $discount ) ) {
 				$this->create_or_update_coupon( $discount );
 			} else {
