@@ -799,10 +799,8 @@ class Migrator_CLI_Orders {
 			// 'paypal' not 'PayPal' they are two different gateways.
 			case 'paypal':
 				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $transaction->gateway );
+				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->billing_agreement_id );
 
-				if ( isset( $transaction->receipt->billing_agreement_id ) && $transaction->receipt->billing_agreement_id ) {
-					$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->billing_agreement_id );
-				}
 				break;
 			case '':
 			case 'manual':
@@ -824,6 +822,10 @@ class Migrator_CLI_Orders {
 		$transactions = array_reverse( (array) $transactions );
 		foreach ( $transactions as $transaction ) {
 			if ( in_array( $transaction->kind, array( 'sale', 'capture', 'authorization' ), true ) && 'failure' !== $transaction->status ) {
+				if ( 'paypal' === $transaction->gateway && ( ! isset( $transaction->receipt->billing_agreement_id ) || empty( $transaction->receipt->billing_agreement_id ) ) ) {
+					continue;
+				}
+
 				return $transaction;
 			}
 		}
