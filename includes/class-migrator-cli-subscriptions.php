@@ -85,7 +85,7 @@ class Migrator_CLI_Subscriptions {
 			$skio_orders = wc_get_orders( $args );
 
 			if ( ! $skio_orders ) {
-				WP_CLI::line( 'Woo Order not found for Shopify Order: ' . $skio_order['orderPlatformNumber'] );
+				WP_CLI::line( WP_CLI::colorize( '%RError%n') . 'Woo Order not found for Shopify Order: ' . $skio_order['orderPlatformNumber'] );
 				continue;
 			}
 
@@ -103,6 +103,7 @@ class Migrator_CLI_Subscriptions {
 	 */
 	private function create_or_update_subscriptions( $skio_subscriptions ) {
 		foreach ( $skio_subscriptions as $skio_subscription ) {
+			WP_CLI::line( '' );
 			WP_CLI::line( 'Processing subscription: ' . $skio_subscription['subscriptionId'] );
 
 			// Get all the orders for that subscription.
@@ -114,7 +115,6 @@ class Migrator_CLI_Subscriptions {
 				'orderby'      => 'date_created',
 				'order'        => 'ASC',
 			);
-
 			$existing_orders = wc_get_orders( $args );
 
 			if ( ! $existing_orders && 'CANCELLED' !== $skio_subscription['status'] ) {
@@ -312,7 +312,7 @@ class Migrator_CLI_Subscriptions {
 	private function set_subscription_status( $subscription, $skio_subscription ) {
 
 		if ( ! in_array( $skio_subscription['status'], array( 'ACTIVE', 'CANCELLED' ), true ) ) {
-			WP_CLI::line( 'Unknown subscription status: ' . $skio_subscription['status'] );
+			WP_CLI::line( WP_CLI::colorize( '%YWarning%n' ) . 'Unknown subscription status: ' . $skio_subscription['status'] );
 		}
 
 		$subscription->set_status( mb_strtolower( $skio_subscription['status'] ) );
@@ -383,7 +383,7 @@ class Migrator_CLI_Subscriptions {
 				$subscription->update_meta_data( '_ppec_billing_agreement_id', $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY ) );
 				break;
 			default:
-				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Unknown payment gateway' );
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Unsupported payment gateway: ' . $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
 		}
 	}
 }
