@@ -178,6 +178,7 @@ class Migrator_CLI_Payment_Methods {
 				continue;
 			}
 
+			WP_CLI::line( '' );
 			WP_CLI::line( 'Updating customer: ' . $data[ self::NEW_CUSTOMER_ID_POS ] );
 			$user = $this->get_user_by_stripe_id( $data[ self::NEW_CUSTOMER_ID_POS ] );
 
@@ -303,21 +304,29 @@ class Migrator_CLI_Payment_Methods {
 
 			/** @var WC_Order|WC_Subscription $order */
 			foreach ( $orders as $order ) {
-				WP_CLI::line( 'Processing ' . $type . ': ' . $order->get_id() );
+				WP_CLI::line( '' );
+
+				if ( 'shop_order' === $type ) {
+					WP_CLI::line( 'Processing shop_order: ' . $order->get_id() . ' ' . $order->get_meta( '_original_order_id' ) );
+				} else {
+					WP_CLI::line( 'Processing shop_subscription: ' . $order->get_id() . ' ' . $order->get_meta( '_skio_subscription_id' ) );
+				}
 
 				switch ( $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) ) {
 					case 'shopify_payments':
 						$this->process_shopify_payments( $order );
 						break;
 					case 'paypal':
-						if ( ! $order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY ) ) {
+						if ( ! $order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY ) && 'shop_subscription' === $type ) {
 							WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Paypal subscription does not have a billing agreement. Renewals will fail' );
 						}
 						break;
 					case 'manual':
 						break;
 					case null:
-						WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Payment gateway not set' );
+						if ( 'shop_subscription' === $type ) {
+							WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Payment gateway not set' );
+						}
 						break;
 					default:
 						WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Unkown payment gateway' . $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
