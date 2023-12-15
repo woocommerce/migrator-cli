@@ -33,6 +33,7 @@ class Migrator_CLI_Orders {
 		$sorting            = isset( $assoc_args['sorting'] ) ? $assoc_args['sorting'] : 'id asc';
 		$mode               = isset( $assoc_args['mode'] ) ? $assoc_args['mode'] : 'test';
 		$send_notifications = isset( $assoc_args['send-notifications'] ) ? true : false;
+		$retrying           = false;
 
 		do {
 			if ( $next_link ) {
@@ -51,7 +52,30 @@ class Migrator_CLI_Orders {
 				);
 			}
 
+			if ( isset( $response->errors ) ) {
+				if ( $retrying ) {
+					WP_CLI::error( 'Api error again. Stopping: ' . wp_json_encode( $response->errors ) );
+				}
+
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response->errors ) );
+				$retrying = true;
+				continue;
+			}
+
 			$response_data = json_decode( wp_remote_retrieve_body( $response ) );
+
+			if ( isset( $response_data->errors ) ) {
+				if ( $retrying ) {
+					WP_CLI::error( 'Api error again. Stopping: ' . wp_json_encode( $response_data->errors ) );
+				}
+
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response_data->errors ) );
+				$retrying = true;
+				continue;
+			}
+
+			// Clears so it can retry again if it fails on the next page.
+			$retrying = false;
 
 			// Disable WP emails before migration starts, unless --send-notifications flag is added.
 			if ( ! $send_notifications ) {
@@ -111,7 +135,7 @@ class Migrator_CLI_Orders {
 				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
 				WP_CLI::line( 'Next: ' . $next_link );
 			}
-		} while ( $next_link && $limit > 0 );
+		} while ( ( $next_link && $limit > 0 ) || $retrying );
 
 		WP_CLI::success( 'All orders have been processed.' );
 
@@ -761,7 +785,7 @@ class Migrator_CLI_Orders {
 		switch ( $transaction->gateway ) {
 			case 'shopify_payments':
 				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $transaction->gateway );
-				$order->update_meta_data(Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4, substr( $transaction->payment_details->credit_card_number, -4 ) );
+				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4, substr( $transaction->payment_details->credit_card_number, -4 ) );
 
 				if ( isset( $transaction->receipt->payment_method ) ) {
 					$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->payment_method );
@@ -780,10 +804,12 @@ class Migrator_CLI_Orders {
 					$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $transaction->receipt->billing_agreement_id );
 				}
 				break;
+			case '':
 			case 'manual':
 				break;
 			default:
-				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Unkown payment gateway: ' . $transaction->gateway );
+				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $transaction->gateway );
+				WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Unkown payment gateway: ' . $transaction->gateway );
 		}
 	}
 
@@ -795,7 +821,7 @@ class Migrator_CLI_Orders {
 	 * @return array|void
 	 */
 	private function get_transaction_with_payment_method_data( $transactions ) {
-		$transactions = array_reverse ( ( array ) $transactions );
+		$transactions = array_reverse( (array) $transactions );
 		foreach ( $transactions as $transaction ) {
 			if ( in_array( $transaction->kind, array( 'sale', 'capture', 'authorization' ), true ) && 'failure' !== $transaction->status ) {
 				return $transaction;
