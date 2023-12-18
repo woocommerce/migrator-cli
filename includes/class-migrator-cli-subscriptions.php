@@ -380,7 +380,7 @@ class Migrator_CLI_Subscriptions {
 			// 'paypal' not 'PayPal' they are two different gateways.
 			case 'paypal':
 				if ( ! class_exists( 'WC_Gateway_PPEC_Plugin' ) ) {
-					WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'PayPal Express Plugin not installed. It will be necessary to process payments for this subscription' );
+					WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'PayPal Express Checkout Plugin not installed. It will be necessary to process payments for this subscription' );
 				}
 
 				// Todo: Needs to check if PayPal is active.

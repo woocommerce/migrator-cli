@@ -139,7 +139,7 @@ class Migrator_CLI_Payment_Methods {
 		}
 
 		if ( ! is_file( $assoc_args['migration_file'] ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%RError%n ' ) . 'File not found' );
+			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'File not found' );
 			die();
 		}
 
@@ -329,7 +329,11 @@ class Migrator_CLI_Payment_Methods {
 						}
 						break;
 					default:
-						WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Unkown payment gateway' . $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
+						if ( 'shop_subscription' === $type ) {
+							WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Unknown payment gateway. Renewal will fail: ' . $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
+						} else {
+							WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Unknown payment gateway: ' . $order->get_meta( self::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
+						}
 				}
 			}
 

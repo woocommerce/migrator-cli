@@ -807,7 +807,7 @@ class Migrator_CLI_Orders {
 				break;
 			default:
 				$order->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $transaction->gateway );
-				WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Unkown payment gateway: ' . $transaction->gateway );
+				WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Unknown payment gateway: ' . $transaction->gateway );
 		}
 	}
 
