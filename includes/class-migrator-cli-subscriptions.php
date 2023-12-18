@@ -117,8 +117,10 @@ class Migrator_CLI_Subscriptions {
 			);
 			$existing_orders = wc_get_orders( $args );
 
-			if ( ! $existing_orders && 'CANCELLED' !== $skio_subscription['status'] ) {
-				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Woo Order not found for Skio Subscription: ' . $skio_subscription['subscriptionId'] );
+			if ( ! $existing_orders ) {
+				if ( 'CANCELLED' !== $skio_subscription['status'] ) {
+					WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Woo Order not found for Skio Subscription: ' . $skio_subscription['subscriptionId'] );
+				}
 				continue;
 			}
 
@@ -143,7 +145,6 @@ class Migrator_CLI_Subscriptions {
 			$subscription->set_payment_method_title( $latest_order->get_payment_method_title() );
 			$subscription->set_shipping_total( $latest_order->get_shipping_total() );
 			$subscription->set_discount_total( $latest_order->get_discount_total() );
-
 			$subscription->update_meta_data( '_skio_subscription_id', $skio_subscription['subscriptionId'] );
 
 			$this->attatch_orders( $subscription, $existing_orders, $oldest_order );
@@ -243,7 +244,14 @@ class Migrator_CLI_Subscriptions {
 		}
 
 		foreach ( $latest_order->get_items( array( 'coupon' ) ) as $item ) {
-			$subscription->apply_coupon( $item->get_code() );
+			$result = $subscription->apply_coupon( $item->get_code() );
+			if ( ! $result ) {
+				WP_CLI::line( WP_CLI::colorize( '%RError%n' ) . 'Could not apply coupon: ' . $item->get_code() );
+			}
+
+			if ( is_wp_error( $result ) ) {
+				WP_CLI::line( WP_CLI::colorize( '%RError%n' ) . 'Could not apply coupon: ' . $item->get_code() . ' ' . $result->get_error_message() );
+			}
 		}
 	}
 
@@ -383,7 +391,6 @@ class Migrator_CLI_Subscriptions {
 					WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'PayPal Express Checkout Plugin not installed. It will be necessary to process payments for this subscription' );
 				}
 
-				// Todo: Needs to check if PayPal is active.
 				$subscription->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY, $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY ) );
 				$subscription->update_meta_data( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY, $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_METHOD_ID_KEY ) );
 
