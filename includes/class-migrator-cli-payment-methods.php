@@ -144,7 +144,7 @@ class Migrator_CLI_Payment_Methods {
 		}
 
 		$order_ids        = isset( $assoc_args['order-ids'] ) ? explode( ',', $assoc_args['order-ids'] ) : null;
-		$subscription_ids = isset( $assoc_args['subscription-ids'] ) ? explode( ',', $assoc_args['order-ids'] ) : null;
+		$subscription_ids = isset( $assoc_args['subscription-ids'] ) ? explode( ',', $assoc_args['subscription-ids'] ) : null;
 
 		WP_CLI::line( 'Updating customers' );
 		$this->add_pan_import_data( $assoc_args['migration_file'] );
