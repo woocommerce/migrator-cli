@@ -203,26 +203,26 @@ class Migrator_CLI extends WP_CLI_Command {
 
 	/**
 	 * Reads the stripe csv created after the PAN import and saves info about
-	 * the original `cus_` and `pm_`s to the customer and payment tokens.
+	 *  the original `cus_` and `pm_`s to the customer and payment tokens.
 	 *
 	 * ## Options
 	 *
-	 * [--migration_file]
-	 * : The csv file stripe created containing the mapping between old and data.
+	 *  [--migration_file]
+	 *  : The csv file stripe created containing the mapping between old and data.
 	 *
-	 * [--order-ids]
-	 * : A list of Woo order ids to be processed. Limited to 100.
+	 *  [--order-ids]
+	 *   : A list of Woo order ids to be processed. Limited to 100.
 	 *
 	 *  [--subscription-ids]
 	 *  : A list of Woo subscription ids to be processed. Limited to 100.
 	 *
-	 * Example:
+	 *  Example:
 	 *
-	 * wp migrator add_woopayments_migration_data --migration_file=<absolute_path> --order-ids="1,2,3" --subscription-ids="3,4,5"
+	 *  wp migrator update_payment_methods --migration_file=<absolute_path> --order-ids="1,2,3" --subscription-ids="3,4,5"
 	 *
 	 * @when after_wp_load
 	 */
-	public function add_woopayments_migration_data( $args, $assoc_args ) {
+	public function update_payment_methods($args, $assoc_args ) {
 		Migrator_CLI_Utils::set_importing_const();
 
 		$payment_methods = new Migrator_Cli_Payment_Methods();
