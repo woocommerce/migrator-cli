@@ -141,7 +141,7 @@ wp import_stripe_data_into_woopayments [--limit]
 
 
 ```
-  wp migrator add_woopayments_migration_data [--migration_file] [--order-ids] [--subscription-ids]
+  wp migrator update_payment_methods [--migration_file] [--order-ids] [--subscription-ids]
 
   OPTIONS
 
@@ -157,7 +157,7 @@ wp import_stripe_data_into_woopayments [--limit]
  
   Example:
  
-  wp migrator add_woopayments_migration_data --migration_file=<absolute_path> --order-ids="1,2,3" --subscription-ids="3,4,5"	 
+  wp migrator update_payment_methods --migration_file=<absolute_path> --order-ids="1,2,3" --subscription-ids="3,4,5"	 
 ```
 
 ```
