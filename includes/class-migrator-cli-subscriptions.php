@@ -85,7 +85,7 @@ class Migrator_CLI_Subscriptions {
 			$skio_orders = wc_get_orders( $args );
 
 			if ( ! $skio_orders ) {
-				WP_CLI::line( WP_CLI::colorize( '%RError%n') . 'Woo Order not found for Shopify Order: ' . $skio_order['orderPlatformNumber'] );
+				WP_CLI::line( WP_CLI::colorize( '%RError%n' ) . 'Woo Order not found for Shopify Order: ' . $skio_order['orderPlatformNumber'] );
 				continue;
 			}
 
@@ -107,7 +107,7 @@ class Migrator_CLI_Subscriptions {
 			WP_CLI::line( 'Processing subscription: ' . $skio_subscription['subscriptionId'] );
 
 			// Get all the orders for that subscription.
-			$args = array(
+			$args            = array(
 				'meta_key'     => '_skio_subscription_id',
 				'meta_value'   => $skio_subscription['subscriptionId'],
 				'meta_compare' => '=',
@@ -244,13 +244,22 @@ class Migrator_CLI_Subscriptions {
 		}
 
 		foreach ( $latest_order->get_items( array( 'coupon' ) ) as $item ) {
+
+			$coupon = new WC_Coupon( $item->get_code() );
+
+			// Coupons that apply to the first cycle only shouldn't be added to the subscription
+			if ( 'yes' === $coupon->get_meta( '_apply_to_first_cycle_only' ) || 1 === (int) $coupon->get_meta( '_wcs_number_payments' ) ) {
+				WP_CLI::line( WP_CLI::colorize( '%RWarning%n ' ) . 'This coupon should only be used in the first cycle. Not applying to Subscription. Total mismatch may happen. But that should be ok' );
+				return;
+			}
+
 			$result = $subscription->apply_coupon( $item->get_code() );
 			if ( ! $result ) {
-				WP_CLI::line( WP_CLI::colorize( '%RError%n' ) . 'Could not apply coupon: ' . $item->get_code() );
+				WP_CLI::line( WP_CLI::colorize( '%RError%n ' ) . 'Could not apply coupon: ' . $item->get_code() );
 			}
 
 			if ( is_wp_error( $result ) ) {
-				WP_CLI::line( WP_CLI::colorize( '%RError%n' ) . 'Could not apply coupon: ' . $item->get_code() . ' ' . $result->get_error_message() );
+				WP_CLI::line( WP_CLI::colorize( '%RError%n ' ) . 'Could not apply coupon: ' . $item->get_code() . ' ' . $result->get_error_message() );
 			}
 		}
 	}

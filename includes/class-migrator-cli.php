@@ -222,7 +222,7 @@ class Migrator_CLI extends WP_CLI_Command {
 	 *
 	 * @when after_wp_load
 	 */
-	public function update_payment_methods($args, $assoc_args ) {
+	public function update_payment_methods( $args, $assoc_args ) {
 		Migrator_CLI_Utils::set_importing_const();
 
 		$payment_methods = new Migrator_Cli_Payment_Methods();
