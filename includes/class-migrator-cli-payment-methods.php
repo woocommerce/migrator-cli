@@ -365,7 +365,7 @@ class Migrator_CLI_Payment_Methods {
 		$token = $this->get_customer_token_by_old_payment_method_id( $order->get_customer_id(), $old_payment_method_id, $old_payment_method_last_4 );
 
 		if ( ! $token ) {
-			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Payment Token not found:' . $old_payment_method_id );
+			WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Payment Token not found: ' . $old_payment_method_id );
 			return;
 		}
 

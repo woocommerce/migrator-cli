@@ -249,7 +249,7 @@ class Migrator_CLI_Subscriptions {
 
 			// Coupons that apply to the first cycle only shouldn't be added to the subscription
 			if ( 'yes' === $coupon->get_meta( '_apply_to_first_cycle_only' ) || 1 === (int) $coupon->get_meta( '_wcs_number_payments' ) ) {
-				WP_CLI::line( WP_CLI::colorize( '%RWarning%n ' ) . 'This coupon should only be used in the first cycle. Not applying to Subscription. Total mismatch may happen. But that should be ok' );
+				WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'This coupon should only be used in the first cycle. Not applying to Subscription. Total mismatch may happen. But that should be ok' );
 				return;
 			}
 
@@ -329,7 +329,7 @@ class Migrator_CLI_Subscriptions {
 	private function set_subscription_status( $subscription, $skio_subscription ) {
 
 		if ( ! in_array( $skio_subscription['status'], array( 'ACTIVE', 'CANCELLED', 'FAILED' ), true ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%YWarning%n' ) . 'Unknown subscription status: ' . $skio_subscription['status'] );
+			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n' ) . 'Unknown subscription status: ' . $skio_subscription['status'] );
 		}
 
 		$subscription->set_status( mb_strtolower( $skio_subscription['status'] ) );

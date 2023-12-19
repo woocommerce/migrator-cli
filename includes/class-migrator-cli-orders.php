@@ -191,6 +191,10 @@ class Migrator_CLI_Orders {
 		$order = new WC_Order( $woo_order );
 		$order->save();
 
+		if ( ! $woo_order ) {
+			WP_CLI::line( 'Order created: ' . $order->get_id() );
+		}
+
 		$this->order_items_mapping = $order->get_meta( '_order_items_mapping', true ) ? $order->get_meta( '_order_items_mapping', true ) : array();
 
 		// Store the original order id for future reference.
