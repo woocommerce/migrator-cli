@@ -19,7 +19,7 @@ add_action(
 			require_once __DIR__ . '/config.php';
 		}
 
-		require_once __DIR__ . '/includes/WooPayments/class-migrator-cli-woo-payments-customers.php';
+		require_once __DIR__ . '/includes/WooPayments/class-migrator-cli-woopayments-customers.php';
 
 		require_once __DIR__ . '/includes/class-migrator-cli.php';
 		require_once __DIR__ . '/includes/class-migrator-cli-coupons.php';
