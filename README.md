@@ -27,7 +27,7 @@
     Query Order after this date. ISO 8601 format.
 
   [--limit]
-    Limit the total number of orders to process. Set to 1000 by default.
+    Limit the total number of orders to process. Set to PHP_INT_MAX by default.
 
   [--perpage]
     Limit the number of orders to process each time.
@@ -78,7 +78,7 @@
     Query Order after this date. ISO 8601 format.
 
   [--limit]
-    Limit the total number of orders to process. Set to 1000 by default.
+    Limit the total number of orders to process. Set to PHP_INT_MAX by default.
 
   [--perpage]
     Limit the number of orders to process each time.
@@ -132,7 +132,7 @@ wp import_stripe_data_into_woopayments [--limit]
   OPTIONS
   
   [--limit]
-  : Limit the total number of coupons to process. This won't count the sub codes. Default to 1000.
+  : Limit the total number of coupons to process. This won't count the sub codes. Default to PHP_INT_MAX.
 
   Example
   wp import_stripe_data_into_woopayments --limit=1  
@@ -168,7 +168,7 @@ wp import_stripe_data_into_woopayments [--limit]
   OPTIONS	
  
   [--limit]
-  : Limit the total number of coupons to process. This won't count the sub codes. Default to 1000.
+  : Limit the total number of coupons to process. This won't count the sub codes. Default to PHP_INT_MAX.
 
   [--cursor]
   : The cursor of the last discount to start importing from

@@ -10,7 +10,7 @@ class Migrator_CLI_Coupons {
 	 */
 	public function import( $assoc_args ) {
 		$imported = 0;
-		$limit    = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
+		$limit    = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : PHP_INT_MAX;
 		$cursor   = isset( $assoc_args['cursor'] ) ? $assoc_args['cursor'] : '';
 
 		do {

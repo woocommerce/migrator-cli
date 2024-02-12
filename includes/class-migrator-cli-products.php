@@ -28,7 +28,7 @@ class Migrator_CLI_Products {
 
 		$before       = isset( $assoc_args['before'] ) ? $assoc_args['before'] : null;
 		$after        = isset( $assoc_args['after'] ) ? $assoc_args['after'] : null;
-		$limit        = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
+		$limit        = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : PHP_INT_MAX;
 		$perpage      = isset( $assoc_args['perpage'] ) ? $assoc_args['perpage'] : 50;
 		$perpage      = min( $perpage, $limit );
 		$next_link    = isset( $assoc_args['next'] ) ? $assoc_args['next'] : '';

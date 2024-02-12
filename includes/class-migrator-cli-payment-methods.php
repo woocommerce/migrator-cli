@@ -25,7 +25,7 @@ class Migrator_CLI_Payment_Methods {
 			die();
 		}
 
-		$limit   = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
+		$limit   = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : PHP_INT_MAX;
 		$perpage = min( 100, $limit );
 
 		$starting_after = '';
