@@ -101,11 +101,12 @@ class Migrator_CLI_Products {
 
 		WP_CLI::line( '===============================' );
 
-		if ( $response_data->next_link && $limit > $perpage ) {
+		$next_link = $response_data->next_link;
+		if ( $next_link && $limit > $perpage ) {
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more products to process.' );
 			$this->migrate_products(
 				array(
-					'next'    => $response_data->next_link,
+					'next'    => $next_link,
 					'limit'   => $limit - $perpage,
 					'exclude' => implode( ',', $exclude ),
 				)

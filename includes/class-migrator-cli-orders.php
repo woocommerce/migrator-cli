@@ -105,6 +105,7 @@ class Migrator_CLI_Orders {
 
 			$limit    -= $perpage;
 
+			$next_link = $response_data->next_link;
 			if ( $next_link && $limit > 0 ) {
 				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
 				WP_CLI::line( 'Next: ' . $next_link );
