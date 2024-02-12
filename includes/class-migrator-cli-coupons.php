@@ -346,7 +346,7 @@ class Migrator_CLI_Coupons {
 		}
 
 		if ( true === $discount->combinesWith->orderDiscounts || true === $discount->combinesWith->productDiscounts || true === $discount->combinesWith->shippingDiscounts ) {
-			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'The importer does handle combining discounts at the moment.' );
+			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'The importer does not handle combining discounts at the moment.' );
 		}
 
 		if ( 'SHIPPING' === $discount->discountClass ) {
