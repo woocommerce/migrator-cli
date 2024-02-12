@@ -70,6 +70,7 @@ class Migrator_CLI_Coupons {
 												productDiscounts
 												shippingDiscounts
 											}
+											updatedAt
 											createdAt
 											customerSelection {
 												... on DiscountCustomers {
