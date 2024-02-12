@@ -33,13 +33,13 @@ class Migrator_CLI_Order_Tags {
 			);
 		}
 
-		if ( ! $response_data || empty( $response_data->orders ) ) {
+		if ( ! $response_data || empty( $response_data->data->orders ) ) {
 			WP_CLI::error( 'Could not find order in Shopify.' );
 		}
 
-		WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->orders ), min( $limit, $perpage, count( $response_data->orders ) ), count( $response_data->orders ) ) );
+		WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->data->orders ), min( $limit, $perpage, count( $response_data->data->orders ) ), count( $response_data->data->orders ) ) );
 
-		foreach ( $response_data->orders as $shopify_order ) {
+		foreach ( $response_data->data->orders as $shopify_order ) {
 			WP_CLI::line( '-------------------------------' );
 			$order_number = $shopify_order->order_number;
 
@@ -101,12 +101,11 @@ class Migrator_CLI_Order_Tags {
 
 		WP_CLI::line( '===============================' );
 
-		$next_link = Migrator_CLI_Utils::get_rest_next_link( $response );
-		if ( $next_link && $limit > $perpage ) {
+		if ( $response_data->next_link && $limit > $perpage ) {
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
 			$this->fix_missing_order_tags(
 				array(
-					'next'  => $next_link,
+					'next'  => $response_data->next_link,
 					'limit' => $limit - $perpage,
 				)
 			);

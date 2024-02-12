@@ -55,13 +55,13 @@ class Migrator_CLI_Products {
 			);
 		}
 
-		if ( ! $response_data || empty( $response_data->products ) ) {
+		if ( ! $response_data || empty( $response_data->data->products ) ) {
 			WP_CLI::error( 'No Shopify products found.' );
 		}
 
-		WP_CLI::line( sprintf( 'Found %d products in Shopify. Processing %d products.', count( $response_data->products ), min( $limit, $perpage, count( $response_data->products ) ) ) );
+		WP_CLI::line( sprintf( 'Found %d products in Shopify. Processing %d products.', count( $response_data->data->products ), min( $limit, $perpage, count( $response_data->data->products ) ) ) );
 
-		foreach ( $response_data->products as $shopify_product ) {
+		foreach ( $response_data->data->products as $shopify_product ) {
 
 			if ( in_array( $shopify_product->id, $exclude, true ) || $this->preg_match_array( $shopify_product->variants[0]->sku, $exclude ) ) {
 				WP_CLI::line( sprintf( 'Product %s is excluded. Skipping...', $shopify_product->handle ) );
@@ -101,12 +101,11 @@ class Migrator_CLI_Products {
 
 		WP_CLI::line( '===============================' );
 
-		$next_link = Migrator_CLI_Utils::get_rest_next_link( $response );
-		if ( $next_link && $limit > $perpage ) {
+		if ( $response_data->next_link && $limit > $perpage ) {
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more products to process.' );
 			$this->migrate_products(
 				array(
-					'next'    => $next_link,
+					'next'    => $response_data->next_link,
 					'limit'   => $limit - $perpage,
 					'exclude' => implode( ',', $exclude ),
 				)

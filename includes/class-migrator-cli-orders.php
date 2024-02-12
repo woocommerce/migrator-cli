@@ -33,7 +33,6 @@ class Migrator_CLI_Orders {
 		$sorting            = isset( $assoc_args['sorting'] ) ? $assoc_args['sorting'] : 'id asc';
 		$mode               = isset( $assoc_args['mode'] ) ? $assoc_args['mode'] : 'test';
 		$send_notifications = isset( $assoc_args['send-notifications'] ) ? true : false;
-		$retrying           = false;
 
 		do {
 			if ( $next_link ) {
@@ -52,7 +51,7 @@ class Migrator_CLI_Orders {
 				);
 			}
 
-			if ( ! $response_data || empty( $response_data->orders ) ) {
+			if ( ! $response_data || empty( $response_data->data->orders ) ) {
 				WP_CLI::error( 'No Shopify orders found.' );
 			}
 
@@ -63,9 +62,9 @@ class Migrator_CLI_Orders {
 				WP_CLI::confirm( 'Are you sure you want to send out email notifications to users? This could potentially spam your users.' );
 			}
 
-			WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->orders ), min( $limit, $perpage, count( $response_data->orders ) ) ) );
+			WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->data->orders ), min( $limit, $perpage, count( $response_data->data->orders ) ) ) );
 
-			foreach ( $response_data->orders as $shopify_order ) {
+			foreach ( $response_data->data->orders as $shopify_order ) {
 
 				if ( in_array( $shopify_order->id, $exclude, true ) ) {
 					WP_CLI::line( sprintf( 'Order %s is excluded. Skipping...', $shopify_order->order_number ) );
@@ -103,14 +102,14 @@ class Migrator_CLI_Orders {
 
 			WP_CLI::line( '===============================' );
 
-			$next_link = Migrator_CLI_Utils::get_rest_next_link( $response );
+
 			$limit    -= $perpage;
 
 			if ( $next_link && $limit > 0 ) {
 				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
 				WP_CLI::line( 'Next: ' . $next_link );
 			}
-		} while ( ( $next_link && $limit > 0 ) || $retrying );
+		} while ( ( $next_link && $limit > 0 ) );
 
 		WP_CLI::success( 'All orders have been processed.' );
 
@@ -609,19 +608,15 @@ class Migrator_CLI_Orders {
 		foreach ( $shopify_order->refunds as $shopify_refund ) {
 
 			// Check if the refund exists
-			$refunds = wc_get_orders(
-				array(
-					'limit'      => 1,
-					'type'       => 'shop_order_refund',
-					'meta_key'   => '_original_refund_id',
-					'meta_value' => $shopify_refund->id,
-				)
-			);
+			$refunds = $order->get_refunds();
 
 			if ( count( $refunds ) > 0 ) {
 				// Deleting the refund then create a new one so we can reuse the logic in wc_create_refund.
 				WP_CLI::line( sprintf( 'Refund %d already exists (%d). Deleting to create a new one.', $shopify_refund->id, $refunds[0]->get_id() ) );
-				wp_delete_post( $refunds[0]->get_id(), true );
+
+				foreach ( $refunds as $refund ) {
+					$refund->delete();
+				}
 			}
 
 			// Refunded line items
@@ -747,12 +742,12 @@ class Migrator_CLI_Orders {
 	private function process_payment_data( $order, $shopify_order ) {
 		$transactions = Migrator_CLI_Utils::rest_request( 'orders/' . $shopify_order->id . '/transactions.json' );
 
-		if ( ! $transactions || ! $transactions->transactions ) {
+		if ( ! $transactions || ! $transactions->data->transactions ) {
 			WP_CLI::line( 'No transactions to import for this order.' );
 			return;
 		}
 
-		$transaction = $this->get_transaction_with_payment_method_data( $transactions->transactions );
+		$transaction = $this->get_transaction_with_payment_method_data( $transactions->data->transactions );
 
 		if ( ! $transaction ) {
 			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Capture transaction not found. Not going to import the transaction data for this order.' );

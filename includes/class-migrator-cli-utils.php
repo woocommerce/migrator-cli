@@ -44,7 +44,7 @@ class Migrator_CLI_Utils {
 	 *
 	 * @param string $endpoint the endpoint.
 	 * @param array $body the request body.
-	 * @return array
+	 * @return object
 	 */
 	public static function rest_request( $endpoint, $body = array() ) {
 		$retrying = false;
@@ -91,7 +91,10 @@ class Migrator_CLI_Utils {
 				continue;
 			}
 
-			return $response_data;
+			return ( object ) array(
+				'next_link' => self::get_rest_next_link( $response ),
+				'data' => $response_data,
+			);
 		} while ( true );
 	}
 
