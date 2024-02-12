@@ -47,20 +47,52 @@ class Migrator_CLI_Utils {
 	 * @return array
 	 */
 	public static function rest_request( $endpoint, $body = array() ) {
-		if ( strpos( $endpoint, 'http' ) === false ) {
-			$endpoint = 'https://' . SHOPIFY_DOMAIN . '/admin/api/2023-04/' . $endpoint;
-		}
+		$retrying = false;
 
-		return wp_remote_get(
-			$endpoint,
-			array(
-				'headers' => array(
-					'X-Shopify-Access-Token' => ACCESS_TOKEN,
-					'Accept'                 => 'application/json',
-				),
-				'body'    => array_filter( $body ),
-			)
-		);
+		do {
+			if ( strpos( $endpoint, 'http' ) === false ) {
+				$endpoint = 'https://' . SHOPIFY_DOMAIN . '/admin/api/2023-04/' . $endpoint;
+			}
+
+			$response = wp_remote_get(
+				$endpoint,
+				array(
+					'headers' => array(
+						'X-Shopify-Access-Token' => ACCESS_TOKEN,
+						'Accept'                 => 'application/json',
+					),
+					'body'    => array_filter( $body ),
+				)
+			);
+
+			if ( isset( $response->errors ) ) {
+				if ( $retrying ) {
+					WP_CLI::error( 'Api error again. Stopping: ' . wp_json_encode( $response->errors ) );
+					return;
+				}
+
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response->errors ) );
+				$retrying = true;
+				sleep( 1 );
+				continue;
+			}
+
+			$response_data = json_decode( wp_remote_retrieve_body( $response ) );
+
+			if ( isset( $response_data->errors ) ) {
+				if ( $retrying ) {
+					WP_CLI::error( 'Api error again. Stopping: ' . wp_json_encode( $response_data->errors ) );
+					return;
+				}
+
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response_data->errors ) );
+				$retrying = true;
+				sleep( 1 );
+				continue;
+			}
+
+			return $response_data;
+		} while ( true );
 	}
 
 	/**

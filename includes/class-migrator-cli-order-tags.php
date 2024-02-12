@@ -19,9 +19,9 @@ class Migrator_CLI_Order_Tags {
 		$next_link = isset( $assoc_args['next'] ) ? $assoc_args['next'] : '';
 
 		if ( $next_link ) {
-			$response = Migrator_CLI_Utils::rest_request( $next_link );
+			$response_data = Migrator_CLI_Utils::rest_request( $next_link );
 		} else {
-			$response = Migrator_CLI_Utils::rest_request(
+			$response_data = Migrator_CLI_Utils::rest_request(
 				'orders.json?',
 				array(
 					'limit'          => $perpage,
@@ -33,9 +33,7 @@ class Migrator_CLI_Order_Tags {
 			);
 		}
 
-		$response_data = json_decode( wp_remote_retrieve_body( $response ) );
-
-		if ( empty( $response_data->orders ) ) {
+		if ( ! $response_data || empty( $response_data->orders ) ) {
 			WP_CLI::error( 'Could not find order in Shopify.' );
 		}
 

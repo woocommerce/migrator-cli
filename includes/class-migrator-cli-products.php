@@ -40,9 +40,9 @@ class Migrator_CLI_Products {
 		$no_update    = isset( $assoc_args['no-update'] ) ? true : false;
 
 		if ( $next_link ) {
-			$response = Migrator_CLI_Utils::rest_request( $next_link );
+			$response_data = Migrator_CLI_Utils::rest_request( $next_link );
 		} else {
-			$response = Migrator_CLI_Utils::rest_request(
+			$response_data = Migrator_CLI_Utils::rest_request(
 				'products.json',
 				array(
 					'limit'          => $perpage,
@@ -55,9 +55,7 @@ class Migrator_CLI_Products {
 			);
 		}
 
-		$response_data = json_decode( wp_remote_retrieve_body( $response ) );
-
-		if ( empty( $response_data->products ) ) {
+		if ( ! $response_data || empty( $response_data->products ) ) {
 			WP_CLI::error( 'No Shopify products found.' );
 		}
 

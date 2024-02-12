@@ -37,9 +37,9 @@ class Migrator_CLI_Orders {
 
 		do {
 			if ( $next_link ) {
-				$response = Migrator_CLI_Utils::rest_request( $next_link );
+				$response_data = Migrator_CLI_Utils::rest_request( $next_link );
 			} else {
-				$response = Migrator_CLI_Utils::rest_request(
+				$response_data = Migrator_CLI_Utils::rest_request(
 					'orders.json',
 					array(
 						'limit'          => $perpage,
@@ -52,40 +52,15 @@ class Migrator_CLI_Orders {
 				);
 			}
 
-			if ( isset( $response->errors ) ) {
-				if ( $retrying ) {
-					WP_CLI::error( 'Api error again. Stopping: ' . wp_json_encode( $response->errors ) );
-				}
-
-				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response->errors ) );
-				$retrying = true;
-				continue;
+			if ( ! $response_data || empty( $response_data->orders ) ) {
+				WP_CLI::error( 'No Shopify orders found.' );
 			}
-
-			$response_data = json_decode( wp_remote_retrieve_body( $response ) );
-
-			if ( isset( $response_data->errors ) ) {
-				if ( $retrying ) {
-					WP_CLI::error( 'Api error again. Stopping: ' . wp_json_encode( $response_data->errors ) );
-				}
-
-				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response_data->errors ) );
-				$retrying = true;
-				continue;
-			}
-
-			// Clears so it can retry again if it fails on the next page.
-			$retrying = false;
 
 			// Disable WP emails before migration starts, unless --send-notifications flag is added.
 			if ( ! $send_notifications ) {
 				add_filter( 'pre_wp_mail', '__return_false', PHP_INT_MAX );
 			} else {
 				WP_CLI::confirm( 'Are you sure you want to send out email notifications to users? This could potentially spam your users.' );
-			}
-
-			if ( empty( $response_data->orders ) ) {
-				WP_CLI::error( 'No Shopify orders found.' );
 			}
 
 			WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->orders ), min( $limit, $perpage, count( $response_data->orders ) ) ) );
@@ -770,10 +745,9 @@ class Migrator_CLI_Orders {
 	 * @param object $shopify_order the shopify order data.
 	 */
 	private function process_payment_data( $order, $shopify_order ) {
-		$response     = Migrator_CLI_Utils::rest_request( 'orders/' . $shopify_order->id . '/transactions.json' );
-		$transactions = json_decode( wp_remote_retrieve_body( $response ) );
+		$transactions = Migrator_CLI_Utils::rest_request( 'orders/' . $shopify_order->id . '/transactions.json' );
 
-		if ( ! $transactions->transactions ) {
+		if ( ! $transactions || ! $transactions->transactions ) {
 			WP_CLI::line( 'No transactions to import for this order.' );
 			return;
 		}
