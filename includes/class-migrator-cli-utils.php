@@ -47,7 +47,7 @@ class Migrator_CLI_Utils {
 	 * @return object
 	 */
 	public static function rest_request( $endpoint, $body = array() ) {
-		$retrying = false;
+		$retrying = 0;
 
 		do {
 			if ( strpos( $endpoint, 'http' ) === false ) {
@@ -66,28 +66,28 @@ class Migrator_CLI_Utils {
 			);
 
 			if ( isset( $response->errors ) ) {
-				if ( $retrying ) {
-					WP_CLI::error( 'Api error again. Stopping: ' . wp_json_encode( $response->errors ) );
+				if ( $retrying > 10 ) {
+					WP_CLI::error( 'Too many api failures. Stopping: ' . wp_json_encode( $response->errors ) );
 					return;
 				}
 
 				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response->errors ) );
-				$retrying = true;
-				sleep( 1 );
+				++$retrying;
+				sleep( 10 );
 				continue;
 			}
 
 			$response_data = json_decode( wp_remote_retrieve_body( $response ) );
 
 			if ( isset( $response_data->errors ) ) {
-				if ( $retrying ) {
-					WP_CLI::error( 'Api error again. Stopping: ' . wp_json_encode( $response_data->errors ) );
+				if ( $retrying > 10 ) {
+					WP_CLI::error( 'Too many api errors. Stopping: ' . wp_json_encode( $response_data->errors ) );
 					return;
 				}
 
 				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response_data->errors ) );
-				$retrying = true;
-				sleep( 1 );
+				++$retrying;
+				sleep( 10 );
 				continue;
 			}
 
