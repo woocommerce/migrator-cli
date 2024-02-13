@@ -348,10 +348,13 @@ class Migrator_CLI_Orders {
 		if ( ! $customer ) {
 			WP_CLI::line( sprintf( 'Customer %s does not exist. Creating...', $shopify_order->email ) );
 
+			// Prevents anti spam checks from running.
+			remove_all_filters( 'wp_pre_insert_user_data' );
+
 			// Create a new customer using Woo functions.
 			$customer_id = wc_create_new_customer(
-				$shopify_order->email,
-				wc_create_new_customer_username( $shopify_order->email ),
+				mb_strtolower( $shopify_order->email ),
+				wc_create_new_customer_username( mb_strtolower( $shopify_order->email ) ),
 				wp_generate_password()
 			);
 
