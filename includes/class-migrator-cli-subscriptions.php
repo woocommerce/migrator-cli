@@ -85,7 +85,7 @@ class Migrator_CLI_Subscriptions {
 			$skio_orders = wc_get_orders( $args );
 
 			if ( ! $skio_orders ) {
-				WP_CLI::line( WP_CLI::colorize( '%RError%n' ) . 'Woo Order not found for Shopify Order: ' . $skio_order['orderPlatformNumber'] );
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Woo Order not found for Shopify Order: ' . $skio_order['orderPlatformNumber'] );
 				continue;
 			}
 
