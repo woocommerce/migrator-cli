@@ -45,6 +45,8 @@ class Migrator_CLI_Payment_Methods {
 
 			$limit         -= $perpage;
 			$starting_after = end( $stripe_customers )['id'];
+
+			Migrator_CLI_Utils::reset_in_memory_cache();
 		} while ( $result['has_more'] && $limit > 0 );
 
 		WP_CLI::line( 'Done' );
@@ -197,6 +199,10 @@ class Migrator_CLI_Payment_Methods {
 
 			$token->update_meta_data( self::ORIGINAL_PAYMENT_METHOD_ID_KEY, $data[ self::OLD_SOURCE_ID_POS ] );
 			$token->save_meta_data();
+
+			if ( $i % 100 === 0 ) {
+				Migrator_CLI_Utils::reset_in_memory_cache();
+			}
 		}
 	}
 

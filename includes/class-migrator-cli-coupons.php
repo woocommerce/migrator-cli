@@ -30,6 +30,10 @@ class Migrator_CLI_Coupons {
 			// Prevents api throttling.
 			sleep( 1 );
 			++$imported;
+
+			if ( $imported % 100 === 0 ) {
+				Migrator_CLI_Utils::reset_in_memory_cache();
+			}
 		} while ( $response_data->data->codeDiscountNodes->pageInfo->hasNextPage && $imported < $limit );
 
 		WP_CLI::line( WP_CLI::colorize( '%GDone%n' ) );

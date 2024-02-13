@@ -103,6 +103,7 @@ class Migrator_CLI_Order_Tags {
 
 		$next_link = $response_data->next_link;
 		if ( $next_link && $limit > $perpage ) {
+			Migrator_CLI_Utils::reset_in_memory_cache();
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
 			$this->fix_missing_order_tags(
 				array(

@@ -147,4 +147,44 @@ class Migrator_CLI_Utils {
 			define( 'WP_IMPORTING', true );
 		}
 	}
+
+	/**
+	 * Clear in-memory local object cache (global $wp_object_cache) without affecting memcache
+	 * and reset in-memory database query log.
+	 */
+	public static function reset_in_memory_cache() {
+		self::reset_local_object_cache();
+		self::reset_db_query_log();
+	}
+
+	/**
+	 * Reset the local WordPress object cache
+	 *
+	 * This only cleans the local cache in WP_Object_Cache, without
+	 * affecting memcache
+	 */
+	private static function reset_local_object_cache() {
+		global $wp_object_cache;
+
+		if ( ! is_object( $wp_object_cache ) ) {
+			return;
+		}
+
+		$wp_object_cache->group_ops      = array();
+		$wp_object_cache->memcache_debug = array();
+		$wp_object_cache->cache          = array();
+
+		if ( method_exists( $wp_object_cache, '__remoteset' ) ) {
+			$wp_object_cache->__remoteset(); // important
+		}
+	}
+
+	/**
+	 * Reset the WordPress DB query log
+	 */
+	private static function reset_db_query_log() {
+		global $wpdb;
+
+		$wpdb->queries = array();
+	}
 }
