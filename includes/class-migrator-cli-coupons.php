@@ -66,6 +66,7 @@ class Migrator_CLI_Coupons {
 											codeCount
 											codes(first: 200) {
 												nodes {
+													asyncUsageCount
 													code
 													id
 												}

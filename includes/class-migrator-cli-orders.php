@@ -110,6 +110,7 @@ class Migrator_CLI_Orders {
 				Migrator_CLI_Utils::reset_in_memory_cache();
 				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
 				WP_CLI::line( 'Next: ' . $next_link );
+				sleep( 1 );
 			}
 		} while ( ( $next_link && $limit > 0 ) );
 
@@ -319,17 +320,19 @@ class Migrator_CLI_Orders {
 			$order->set_billing_phone( $shopify_order->billing_address->phone );
 		}
 
-		// Update order shipping address.
-		$order->set_shipping_first_name( $shopify_order->shipping_address->first_name );
-		$order->set_shipping_last_name( $shopify_order->shipping_address->last_name );
-		$order->set_shipping_company( $shopify_order->shipping_address->company );
-		$order->set_shipping_address_1( $shopify_order->shipping_address->address1 );
-		$order->set_shipping_address_2( $shopify_order->shipping_address->address2 );
-		$order->set_shipping_city( $shopify_order->shipping_address->city );
-		$order->set_shipping_state( $shopify_order->shipping_address->province_code );
-		$order->set_shipping_postcode( $shopify_order->shipping_address->zip );
-		$order->set_shipping_country( $shopify_order->shipping_address->country_code );
-		$order->set_shipping_phone( $shopify_order->shipping_address->phone );
+		if ( null !== $shopify_order->shipping_address ) {
+			// Update order shipping address.
+			$order->set_shipping_first_name($shopify_order->shipping_address->first_name);
+			$order->set_shipping_last_name($shopify_order->shipping_address->last_name);
+			$order->set_shipping_company($shopify_order->shipping_address->company);
+			$order->set_shipping_address_1($shopify_order->shipping_address->address1);
+			$order->set_shipping_address_2($shopify_order->shipping_address->address2);
+			$order->set_shipping_city($shopify_order->shipping_address->city);
+			$order->set_shipping_state($shopify_order->shipping_address->province_code);
+			$order->set_shipping_postcode($shopify_order->shipping_address->zip);
+			$order->set_shipping_country($shopify_order->shipping_address->country_code);
+			$order->set_shipping_phone($shopify_order->shipping_address->phone);
+		}
 
 		$order->save();
 	}
@@ -368,28 +371,32 @@ class Migrator_CLI_Orders {
 			$customer->set_first_name( $shopify_order->customer->first_name );
 			$customer->set_last_name( $shopify_order->customer->last_name );
 
-			$customer->set_billing_first_name( $shopify_order->billing_address->first_name );
-			$customer->set_billing_last_name( $shopify_order->billing_address->last_name );
-			$customer->set_billing_company( $shopify_order->billing_address->company );
-			$customer->set_billing_address_1( $shopify_order->billing_address->address1 );
-			$customer->set_billing_address_2( $shopify_order->billing_address->address2 );
-			$customer->set_billing_city( $shopify_order->billing_address->city );
-			$customer->set_billing_state( $shopify_order->billing_address->province_code );
-			$customer->set_billing_postcode( $shopify_order->billing_address->zip );
-			$customer->set_billing_country( $shopify_order->billing_address->country );
-			$customer->set_billing_phone( $shopify_order->billing_address->phone );
-			$customer->set_billing_email( $shopify_order->email );
+			if ( null !== $shopify_order->billing_address ) {
+				$customer->set_billing_first_name( $shopify_order->billing_address->first_name );
+				$customer->set_billing_last_name( $shopify_order->billing_address->last_name );
+				$customer->set_billing_company( $shopify_order->billing_address->company );
+				$customer->set_billing_address_1( $shopify_order->billing_address->address1 );
+				$customer->set_billing_address_2( $shopify_order->billing_address->address2 );
+				$customer->set_billing_city( $shopify_order->billing_address->city );
+				$customer->set_billing_state( $shopify_order->billing_address->province_code );
+				$customer->set_billing_postcode( $shopify_order->billing_address->zip );
+				$customer->set_billing_country( $shopify_order->billing_address->country );
+				$customer->set_billing_phone( $shopify_order->billing_address->phone );
+				$customer->set_billing_email( $shopify_order->email );
+			}
 
-			$customer->set_shipping_first_name( $shopify_order->shipping_address->first_name );
-			$customer->set_shipping_last_name( $shopify_order->shipping_address->last_name );
-			$customer->set_shipping_company( $shopify_order->shipping_address->company );
-			$customer->set_shipping_address_1( $shopify_order->shipping_address->address1 );
-			$customer->set_shipping_address_2( $shopify_order->shipping_address->address2 );
-			$customer->set_shipping_city( $shopify_order->shipping_address->city );
-			$customer->set_shipping_state( $shopify_order->shipping_address->province_code );
-			$customer->set_shipping_postcode( $shopify_order->shipping_address->zip );
-			$customer->set_shipping_country( $shopify_order->shipping_address->country );
-			$customer->set_shipping_phone( $shopify_order->shipping_address->phone );
+			if ( null !== $shopify_order->shipping_address ) {
+				$customer->set_shipping_first_name($shopify_order->shipping_address->first_name);
+				$customer->set_shipping_last_name($shopify_order->shipping_address->last_name);
+				$customer->set_shipping_company($shopify_order->shipping_address->company);
+				$customer->set_shipping_address_1($shopify_order->shipping_address->address1);
+				$customer->set_shipping_address_2($shopify_order->shipping_address->address2);
+				$customer->set_shipping_city($shopify_order->shipping_address->city);
+				$customer->set_shipping_state($shopify_order->shipping_address->province_code);
+				$customer->set_shipping_postcode($shopify_order->shipping_address->zip);
+				$customer->set_shipping_country($shopify_order->shipping_address->country);
+				$customer->set_shipping_phone($shopify_order->shipping_address->phone);
+			}
 
 			$customer->save();
 		} else {
