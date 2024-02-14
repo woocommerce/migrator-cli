@@ -378,7 +378,7 @@ class Migrator_CLI_Coupons {
 		}
 
 		// Products
-		if ( isset( $discount->customerGets->items ) && true !== $discount->customerGets->items->allItems ) {
+		if ( isset( $discount->customerGets->items ) && true !== isset( $discount->customerGets->items->allItems ) ) {
 			$meta_values = array();
 
 			if ( isset( $discount->customerGets->items->productVariants ) && count( $discount->customerGets->items->productVariants ) ) {

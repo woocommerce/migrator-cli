@@ -306,16 +306,18 @@ class Migrator_CLI_Orders {
 	 */
 	private function process_order_addresses( WC_Order $order, $shopify_order ) {
 		// Update order billing address.
-		$order->set_billing_first_name( $shopify_order->billing_address->first_name );
-		$order->set_billing_last_name( $shopify_order->billing_address->last_name );
-		$order->set_billing_company( $shopify_order->billing_address->company );
-		$order->set_billing_address_1( $shopify_order->billing_address->address1 );
-		$order->set_billing_address_2( $shopify_order->billing_address->address2 );
-		$order->set_billing_city( $shopify_order->billing_address->city );
-		$order->set_billing_state( $shopify_order->billing_address->province_code );
-		$order->set_billing_postcode( $shopify_order->billing_address->zip );
-		$order->set_billing_country( $shopify_order->billing_address->country_code );
-		$order->set_billing_phone( $shopify_order->billing_address->phone );
+		if ( null !== $shopify_order->billing_address ) {
+			$order->set_billing_first_name( $shopify_order->billing_address->first_name );
+			$order->set_billing_last_name( $shopify_order->billing_address->last_name );
+			$order->set_billing_company( $shopify_order->billing_address->company );
+			$order->set_billing_address_1( $shopify_order->billing_address->address1 );
+			$order->set_billing_address_2( $shopify_order->billing_address->address2 );
+			$order->set_billing_city( $shopify_order->billing_address->city );
+			$order->set_billing_state( $shopify_order->billing_address->province_code );
+			$order->set_billing_postcode( $shopify_order->billing_address->zip );
+			$order->set_billing_country( $shopify_order->billing_address->country_code );
+			$order->set_billing_phone( $shopify_order->billing_address->phone );
+		}
 
 		// Update order shipping address.
 		$order->set_shipping_first_name( $shopify_order->shipping_address->first_name );
