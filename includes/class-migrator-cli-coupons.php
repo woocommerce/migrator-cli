@@ -58,6 +58,7 @@ class Migrator_CLI_Coupons {
 									id
 									codeDiscount {
 										... on DiscountCodeFreeShipping {
+											usageLimit
 											appliesOnOneTimePurchase
 											appliesOnSubscription
 											appliesOncePerCustomer
@@ -385,25 +386,31 @@ class Migrator_CLI_Coupons {
 				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Product variants not supported yet' );
 			}
 
-			foreach ( $discount->customerGets->items->products->nodes as $shopify_product ) {
-				$meta_values[] = $shopify_product->legacyResourceId;
+			if ( isset( $discount->customerGets->items->collections ) ) {
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Product collections not supported yet' );
 			}
 
-			add_filter( 'woocommerce_product_data_store_cpt_get_products_query', array( $this, 'handle_custom_query_var' ), 10, 2 );
+			if ( isset( $discount->customerGets->items->products ) ) {
+				foreach ( $discount->customerGets->items->products->nodes as $shopify_product ) {
+					$meta_values[] = $shopify_product->legacyResourceId;
+				}
 
-			$products = wc_get_products(
-				array(
-					'limit'                => -1,
-					'_original_product_id' => $meta_values,
-				)
-			);
+				add_filter( 'woocommerce_product_data_store_cpt_get_products_query', array( $this, 'handle_custom_query_var' ), 10, 2 );
 
-			$product_ids = array();
-			foreach ( $products as $product ) {
-				$product_ids[] = $product->get_id();
+				$products = wc_get_products(
+					array(
+						'limit'                => -1,
+						'_original_product_id' => $meta_values,
+					)
+				);
+
+				$product_ids = array();
+				foreach ( $products as $product ) {
+					$product_ids[] = $product->get_id();
+				}
+
+				$coupon->set_product_ids( $product_ids );
 			}
-
-			$coupon->set_product_ids( $product_ids );
 		}
 
 		// Rules Supported by WebTofee`s Smart Coupons for WooCommerce.
@@ -469,7 +476,7 @@ class Migrator_CLI_Coupons {
 		$is_subscription_and_one_time = false;
 
 		// Coupons used in both subscriptions and one time purchases.
-		if ( true === $discount->customerGets->appliesOnSubscription && true === $discount->customerGets->appliesOnOneTimePurchase ) {
+		if ( isset( $discount->customerGets ) && true === $discount->customerGets->appliesOnSubscription && true === $discount->customerGets->appliesOnOneTimePurchase ) {
 			if ( class_exists( 'Mixed_Coupons' ) ) {
 				$is_subscription_and_one_time = true;
 				$coupon->update_meta_data( '_allow_subscriptions', 'yes' );
