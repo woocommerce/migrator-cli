@@ -72,7 +72,7 @@ class Migrator_CLI_Subscriptions {
 	 * @param array $skio_orders the Skio orders data.
 	 */
 	private function add_subscription_id_to_orders( $skio_orders ) {
-		foreach ( $skio_orders as $skio_order ) {
+		foreach ( $skio_orders as $key => $skio_order ) {
 			WP_CLI::line( 'Processing order: ' . $skio_order['orderPlatformNumber'] );
 
 			$args = array(
@@ -85,7 +85,7 @@ class Migrator_CLI_Subscriptions {
 			$skio_orders = wc_get_orders( $args );
 
 			if ( ! $skio_orders ) {
-				WP_CLI::line( WP_CLI::colorize( '%RError%n' ) . 'Woo Order not found for Shopify Order: ' . $skio_order['orderPlatformNumber'] );
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Woo Order not found for Shopify Order: ' . $skio_order['orderPlatformNumber'] );
 				continue;
 			}
 
@@ -93,6 +93,10 @@ class Migrator_CLI_Subscriptions {
 			$order = reset( $skio_orders );
 			$order->update_meta_data( '_skio_subscription_id', $skio_order['subscriptionId'] );
 			$order->save_meta_data();
+
+			if ( $key % 100 === 0 ) {
+				Migrator_CLI_Utils::reset_in_memory_cache();
+			}
 		}
 	}
 
@@ -102,7 +106,7 @@ class Migrator_CLI_Subscriptions {
 	 * @param array $skio_subscriptions the Skio subscriptions array.
 	 */
 	private function create_or_update_subscriptions( $skio_subscriptions ) {
-		foreach ( $skio_subscriptions as $skio_subscription ) {
+		foreach ( $skio_subscriptions as $key => $skio_subscription ) {
 			WP_CLI::line( '' );
 			WP_CLI::line( 'Processing subscription: ' . $skio_subscription['subscriptionId'] );
 
@@ -155,6 +159,10 @@ class Migrator_CLI_Subscriptions {
 			$subscription->calculate_totals();
 			if ( $subscription->get_total() !== $latest_order->get_total() ) {
 				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Totals mismatch between last order and subscription. This could mean the coupon is wrong or some item is missing' );
+			}
+
+			if ( $key % 100 === 0 ) {
+				Migrator_CLI_Utils::reset_in_memory_cache();
 			}
 		}
 	}

@@ -13,15 +13,15 @@ class Migrator_CLI_Order_Tags {
 		$dry_run   = isset( $assoc_args['dry-run'] ) ? true : false;
 		$before    = isset( $assoc_args['before'] ) ? $assoc_args['before'] : null;
 		$after     = isset( $assoc_args['after'] ) ? $assoc_args['after'] : null;
-		$limit     = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
+		$limit     = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : PHP_INT_MAX;
 		$perpage   = isset( $assoc_args['perpage'] ) ? $assoc_args['perpage'] : 50;
 		$perpage   = min( $perpage, $limit );
 		$next_link = isset( $assoc_args['next'] ) ? $assoc_args['next'] : '';
 
 		if ( $next_link ) {
-			$response = Migrator_CLI_Utils::rest_request( $next_link );
+			$response_data = Migrator_CLI_Utils::rest_request( $next_link );
 		} else {
-			$response = Migrator_CLI_Utils::rest_request(
+			$response_data = Migrator_CLI_Utils::rest_request(
 				'orders.json?',
 				array(
 					'limit'          => $perpage,
@@ -33,15 +33,13 @@ class Migrator_CLI_Order_Tags {
 			);
 		}
 
-		$response_data = json_decode( wp_remote_retrieve_body( $response ) );
-
-		if ( empty( $response_data->orders ) ) {
+		if ( ! $response_data || empty( $response_data->data->orders ) ) {
 			WP_CLI::error( 'Could not find order in Shopify.' );
 		}
 
-		WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->orders ), min( $limit, $perpage, count( $response_data->orders ) ), count( $response_data->orders ) ) );
+		WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->data->orders ), min( $limit, $perpage, count( $response_data->data->orders ) ), count( $response_data->data->orders ) ) );
 
-		foreach ( $response_data->orders as $shopify_order ) {
+		foreach ( $response_data->data->orders as $shopify_order ) {
 			WP_CLI::line( '-------------------------------' );
 			$order_number = $shopify_order->order_number;
 
@@ -103,8 +101,9 @@ class Migrator_CLI_Order_Tags {
 
 		WP_CLI::line( '===============================' );
 
-		$next_link = Migrator_CLI_Utils::get_rest_next_link( $response );
+		$next_link = $response_data->next_link;
 		if ( $next_link && $limit > $perpage ) {
+			Migrator_CLI_Utils::reset_in_memory_cache();
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
 			$this->fix_missing_order_tags(
 				array(

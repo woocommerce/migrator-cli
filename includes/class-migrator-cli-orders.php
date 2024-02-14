@@ -22,8 +22,8 @@ class Migrator_CLI_Orders {
 
 		$before             = isset( $assoc_args['before'] ) ? $assoc_args['before'] : null;
 		$after              = isset( $assoc_args['after'] ) ? $assoc_args['after'] : null;
-		$limit              = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : 1000;
-		$perpage            = isset( $assoc_args['perpage'] ) ? $assoc_args['perpage'] : 50;
+		$limit              = isset( $assoc_args['limit'] ) ? $assoc_args['limit'] : PHP_INT_MAX;
+		$perpage            = isset( $assoc_args['perpage'] ) ? $assoc_args['perpage'] : 250;
 		$perpage            = min( $perpage, $limit );
 		$next_link          = isset( $assoc_args['next'] ) ? $assoc_args['next'] : '';
 		$status             = isset( $assoc_args['status'] ) ? $assoc_args['status'] : 'any';
@@ -33,13 +33,12 @@ class Migrator_CLI_Orders {
 		$sorting            = isset( $assoc_args['sorting'] ) ? $assoc_args['sorting'] : 'id asc';
 		$mode               = isset( $assoc_args['mode'] ) ? $assoc_args['mode'] : 'test';
 		$send_notifications = isset( $assoc_args['send-notifications'] ) ? true : false;
-		$retrying           = false;
 
 		do {
 			if ( $next_link ) {
-				$response = Migrator_CLI_Utils::rest_request( $next_link );
+				$response_data = Migrator_CLI_Utils::rest_request( $next_link );
 			} else {
-				$response = Migrator_CLI_Utils::rest_request(
+				$response_data = Migrator_CLI_Utils::rest_request(
 					'orders.json',
 					array(
 						'limit'          => $perpage,
@@ -52,30 +51,9 @@ class Migrator_CLI_Orders {
 				);
 			}
 
-			if ( isset( $response->errors ) ) {
-				if ( $retrying ) {
-					WP_CLI::error( 'Api error again. Stopping: ' . wp_json_encode( $response->errors ) );
-				}
-
-				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response->errors ) );
-				$retrying = true;
-				continue;
+			if ( ! $response_data || empty( $response_data->data->orders ) ) {
+				WP_CLI::error( 'No Shopify orders found.' );
 			}
-
-			$response_data = json_decode( wp_remote_retrieve_body( $response ) );
-
-			if ( isset( $response_data->errors ) ) {
-				if ( $retrying ) {
-					WP_CLI::error( 'Api error again. Stopping: ' . wp_json_encode( $response_data->errors ) );
-				}
-
-				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response_data->errors ) );
-				$retrying = true;
-				continue;
-			}
-
-			// Clears so it can retry again if it fails on the next page.
-			$retrying = false;
 
 			// Disable WP emails before migration starts, unless --send-notifications flag is added.
 			if ( ! $send_notifications ) {
@@ -84,13 +62,9 @@ class Migrator_CLI_Orders {
 				WP_CLI::confirm( 'Are you sure you want to send out email notifications to users? This could potentially spam your users.' );
 			}
 
-			if ( empty( $response_data->orders ) ) {
-				WP_CLI::error( 'No Shopify orders found.' );
-			}
+			WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->data->orders ), min( $limit, $perpage, count( $response_data->data->orders ) ) ) );
 
-			WP_CLI::line( sprintf( 'Found %d orders in Shopify. Processing %d orders.', count( $response_data->orders ), min( $limit, $perpage, count( $response_data->orders ) ) ) );
-
-			foreach ( $response_data->orders as $shopify_order ) {
+			foreach ( $response_data->data->orders as $shopify_order ) {
 
 				if ( in_array( $shopify_order->id, $exclude, true ) ) {
 					WP_CLI::line( sprintf( 'Order %s is excluded. Skipping...', $shopify_order->order_number ) );
@@ -128,14 +102,17 @@ class Migrator_CLI_Orders {
 
 			WP_CLI::line( '===============================' );
 
-			$next_link = Migrator_CLI_Utils::get_rest_next_link( $response );
+
 			$limit    -= $perpage;
 
+			$next_link = $response_data->next_link;
 			if ( $next_link && $limit > 0 ) {
+				Migrator_CLI_Utils::reset_in_memory_cache();
 				WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'There are more orders to process.' );
 				WP_CLI::line( 'Next: ' . $next_link );
+				sleep( 1 );
 			}
-		} while ( ( $next_link && $limit > 0 ) || $retrying );
+		} while ( ( $next_link && $limit > 0 ) );
 
 		WP_CLI::success( 'All orders have been processed.' );
 
@@ -330,28 +307,32 @@ class Migrator_CLI_Orders {
 	 */
 	private function process_order_addresses( WC_Order $order, $shopify_order ) {
 		// Update order billing address.
-		$order->set_billing_first_name( $shopify_order->billing_address->first_name );
-		$order->set_billing_last_name( $shopify_order->billing_address->last_name );
-		$order->set_billing_company( $shopify_order->billing_address->company );
-		$order->set_billing_address_1( $shopify_order->billing_address->address1 );
-		$order->set_billing_address_2( $shopify_order->billing_address->address2 );
-		$order->set_billing_city( $shopify_order->billing_address->city );
-		$order->set_billing_state( $shopify_order->billing_address->province_code );
-		$order->set_billing_postcode( $shopify_order->billing_address->zip );
-		$order->set_billing_country( $shopify_order->billing_address->country_code );
-		$order->set_billing_phone( $shopify_order->billing_address->phone );
+		if ( null !== $shopify_order->billing_address ) {
+			$order->set_billing_first_name( $shopify_order->billing_address->first_name );
+			$order->set_billing_last_name( $shopify_order->billing_address->last_name );
+			$order->set_billing_company( $shopify_order->billing_address->company );
+			$order->set_billing_address_1( $shopify_order->billing_address->address1 );
+			$order->set_billing_address_2( $shopify_order->billing_address->address2 );
+			$order->set_billing_city( $shopify_order->billing_address->city );
+			$order->set_billing_state( $shopify_order->billing_address->province_code );
+			$order->set_billing_postcode( $shopify_order->billing_address->zip );
+			$order->set_billing_country( $shopify_order->billing_address->country_code );
+			$order->set_billing_phone( $shopify_order->billing_address->phone );
+		}
 
-		// Update order shipping address.
-		$order->set_shipping_first_name( $shopify_order->shipping_address->first_name );
-		$order->set_shipping_last_name( $shopify_order->shipping_address->last_name );
-		$order->set_shipping_company( $shopify_order->shipping_address->company );
-		$order->set_shipping_address_1( $shopify_order->shipping_address->address1 );
-		$order->set_shipping_address_2( $shopify_order->shipping_address->address2 );
-		$order->set_shipping_city( $shopify_order->shipping_address->city );
-		$order->set_shipping_state( $shopify_order->shipping_address->province_code );
-		$order->set_shipping_postcode( $shopify_order->shipping_address->zip );
-		$order->set_shipping_country( $shopify_order->shipping_address->country_code );
-		$order->set_shipping_phone( $shopify_order->shipping_address->phone );
+		if ( null !== $shopify_order->shipping_address ) {
+			// Update order shipping address.
+			$order->set_shipping_first_name($shopify_order->shipping_address->first_name);
+			$order->set_shipping_last_name($shopify_order->shipping_address->last_name);
+			$order->set_shipping_company($shopify_order->shipping_address->company);
+			$order->set_shipping_address_1($shopify_order->shipping_address->address1);
+			$order->set_shipping_address_2($shopify_order->shipping_address->address2);
+			$order->set_shipping_city($shopify_order->shipping_address->city);
+			$order->set_shipping_state($shopify_order->shipping_address->province_code);
+			$order->set_shipping_postcode($shopify_order->shipping_address->zip);
+			$order->set_shipping_country($shopify_order->shipping_address->country_code);
+			$order->set_shipping_phone($shopify_order->shipping_address->phone);
+		}
 
 		$order->save();
 	}
@@ -372,10 +353,13 @@ class Migrator_CLI_Orders {
 		if ( ! $customer ) {
 			WP_CLI::line( sprintf( 'Customer %s does not exist. Creating...', $shopify_order->email ) );
 
+			// Prevents anti spam checks from running.
+			remove_all_filters( 'wp_pre_insert_user_data' );
+
 			// Create a new customer using Woo functions.
 			$customer_id = wc_create_new_customer(
-				$shopify_order->email,
-				wc_create_new_customer_username( $shopify_order->email ),
+				mb_strtolower( $shopify_order->email ),
+				wc_create_new_customer_username( mb_strtolower( $shopify_order->email ) ),
 				wp_generate_password()
 			);
 
@@ -387,28 +371,32 @@ class Migrator_CLI_Orders {
 			$customer->set_first_name( $shopify_order->customer->first_name );
 			$customer->set_last_name( $shopify_order->customer->last_name );
 
-			$customer->set_billing_first_name( $shopify_order->billing_address->first_name );
-			$customer->set_billing_last_name( $shopify_order->billing_address->last_name );
-			$customer->set_billing_company( $shopify_order->billing_address->company );
-			$customer->set_billing_address_1( $shopify_order->billing_address->address1 );
-			$customer->set_billing_address_2( $shopify_order->billing_address->address2 );
-			$customer->set_billing_city( $shopify_order->billing_address->city );
-			$customer->set_billing_state( $shopify_order->billing_address->province_code );
-			$customer->set_billing_postcode( $shopify_order->billing_address->zip );
-			$customer->set_billing_country( $shopify_order->billing_address->country );
-			$customer->set_billing_phone( $shopify_order->billing_address->phone );
-			$customer->set_billing_email( $shopify_order->email );
+			if ( null !== $shopify_order->billing_address ) {
+				$customer->set_billing_first_name( $shopify_order->billing_address->first_name );
+				$customer->set_billing_last_name( $shopify_order->billing_address->last_name );
+				$customer->set_billing_company( $shopify_order->billing_address->company );
+				$customer->set_billing_address_1( $shopify_order->billing_address->address1 );
+				$customer->set_billing_address_2( $shopify_order->billing_address->address2 );
+				$customer->set_billing_city( $shopify_order->billing_address->city );
+				$customer->set_billing_state( $shopify_order->billing_address->province_code );
+				$customer->set_billing_postcode( $shopify_order->billing_address->zip );
+				$customer->set_billing_country( $shopify_order->billing_address->country );
+				$customer->set_billing_phone( $shopify_order->billing_address->phone );
+				$customer->set_billing_email( $shopify_order->email );
+			}
 
-			$customer->set_shipping_first_name( $shopify_order->shipping_address->first_name );
-			$customer->set_shipping_last_name( $shopify_order->shipping_address->last_name );
-			$customer->set_shipping_company( $shopify_order->shipping_address->company );
-			$customer->set_shipping_address_1( $shopify_order->shipping_address->address1 );
-			$customer->set_shipping_address_2( $shopify_order->shipping_address->address2 );
-			$customer->set_shipping_city( $shopify_order->shipping_address->city );
-			$customer->set_shipping_state( $shopify_order->shipping_address->province_code );
-			$customer->set_shipping_postcode( $shopify_order->shipping_address->zip );
-			$customer->set_shipping_country( $shopify_order->shipping_address->country );
-			$customer->set_shipping_phone( $shopify_order->shipping_address->phone );
+			if ( null !== $shopify_order->shipping_address ) {
+				$customer->set_shipping_first_name($shopify_order->shipping_address->first_name);
+				$customer->set_shipping_last_name($shopify_order->shipping_address->last_name);
+				$customer->set_shipping_company($shopify_order->shipping_address->company);
+				$customer->set_shipping_address_1($shopify_order->shipping_address->address1);
+				$customer->set_shipping_address_2($shopify_order->shipping_address->address2);
+				$customer->set_shipping_city($shopify_order->shipping_address->city);
+				$customer->set_shipping_state($shopify_order->shipping_address->province_code);
+				$customer->set_shipping_postcode($shopify_order->shipping_address->zip);
+				$customer->set_shipping_country($shopify_order->shipping_address->country);
+				$customer->set_shipping_phone($shopify_order->shipping_address->phone);
+			}
 
 			$customer->save();
 		} else {
@@ -634,19 +622,15 @@ class Migrator_CLI_Orders {
 		foreach ( $shopify_order->refunds as $shopify_refund ) {
 
 			// Check if the refund exists
-			$refunds = wc_get_orders(
-				array(
-					'limit'      => 1,
-					'type'       => 'shop_order_refund',
-					'meta_key'   => '_original_refund_id',
-					'meta_value' => $shopify_refund->id,
-				)
-			);
+			$refunds = $order->get_refunds();
 
 			if ( count( $refunds ) > 0 ) {
 				// Deleting the refund then create a new one so we can reuse the logic in wc_create_refund.
 				WP_CLI::line( sprintf( 'Refund %d already exists (%d). Deleting to create a new one.', $shopify_refund->id, $refunds[0]->get_id() ) );
-				wp_delete_post( $refunds[0]->get_id(), true );
+
+				foreach ( $refunds as $refund ) {
+					$refund->delete();
+				}
 			}
 
 			// Refunded line items
@@ -770,15 +754,14 @@ class Migrator_CLI_Orders {
 	 * @param object $shopify_order the shopify order data.
 	 */
 	private function process_payment_data( $order, $shopify_order ) {
-		$response     = Migrator_CLI_Utils::rest_request( 'orders/' . $shopify_order->id . '/transactions.json' );
-		$transactions = json_decode( wp_remote_retrieve_body( $response ) );
+		$transactions = Migrator_CLI_Utils::rest_request( 'orders/' . $shopify_order->id . '/transactions.json' );
 
-		if ( ! $transactions->transactions ) {
+		if ( ! $transactions || ! $transactions->data->transactions ) {
 			WP_CLI::line( 'No transactions to import for this order.' );
 			return;
 		}
 
-		$transaction = $this->get_transaction_with_payment_method_data( $transactions->transactions );
+		$transaction = $this->get_transaction_with_payment_method_data( $transactions->data->transactions );
 
 		if ( ! $transaction ) {
 			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Capture transaction not found. Not going to import the transaction data for this order.' );

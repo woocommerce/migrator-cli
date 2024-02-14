@@ -44,23 +44,58 @@ class Migrator_CLI_Utils {
 	 *
 	 * @param string $endpoint the endpoint.
 	 * @param array $body the request body.
-	 * @return array
+	 * @return object
 	 */
 	public static function rest_request( $endpoint, $body = array() ) {
-		if ( strpos( $endpoint, 'http' ) === false ) {
-			$endpoint = 'https://' . SHOPIFY_DOMAIN . '/admin/api/2023-04/' . $endpoint;
-		}
+		$retrying = 0;
 
-		return wp_remote_get(
-			$endpoint,
-			array(
-				'headers' => array(
-					'X-Shopify-Access-Token' => ACCESS_TOKEN,
-					'Accept'                 => 'application/json',
-				),
-				'body'    => array_filter( $body ),
-			)
-		);
+		do {
+			if ( strpos( $endpoint, 'http' ) === false ) {
+				$endpoint = 'https://' . SHOPIFY_DOMAIN . '/admin/api/2023-04/' . $endpoint;
+			}
+
+			$response = wp_remote_get(
+				$endpoint,
+				array(
+					'headers' => array(
+						'X-Shopify-Access-Token' => ACCESS_TOKEN,
+						'Accept'                 => 'application/json',
+					),
+					'body'    => array_filter( $body ),
+				)
+			);
+
+			if ( isset( $response->errors ) ) {
+				if ( $retrying > 10 ) {
+					WP_CLI::error( 'Too many api failures. Stopping: ' . wp_json_encode( $response->errors ) );
+					return;
+				}
+
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response->errors ) );
+				++$retrying;
+				sleep( 10 );
+				continue;
+			}
+
+			$response_data = json_decode( wp_remote_retrieve_body( $response ) );
+
+			if ( isset( $response_data->errors ) ) {
+				if ( $retrying > 10 ) {
+					WP_CLI::error( 'Too many api errors. Stopping: ' . wp_json_encode( $response_data->errors ) );
+					return;
+				}
+
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Api error trying again: ' . wp_json_encode( $response_data->errors ) );
+				++$retrying;
+				sleep( 10 );
+				continue;
+			}
+
+			return ( object ) array(
+				'next_link' => self::get_rest_next_link( $response ),
+				'data' => $response_data,
+			);
+		} while ( true );
 	}
 
 	/**
@@ -111,5 +146,45 @@ class Migrator_CLI_Utils {
 		if ( ! defined( 'WP_IMPORTING' ) ) {
 			define( 'WP_IMPORTING', true );
 		}
+	}
+
+	/**
+	 * Clear in-memory local object cache (global $wp_object_cache) without affecting memcache
+	 * and reset in-memory database query log.
+	 */
+	public static function reset_in_memory_cache() {
+		self::reset_local_object_cache();
+		self::reset_db_query_log();
+	}
+
+	/**
+	 * Reset the local WordPress object cache
+	 *
+	 * This only cleans the local cache in WP_Object_Cache, without
+	 * affecting memcache
+	 */
+	private static function reset_local_object_cache() {
+		global $wp_object_cache;
+
+		if ( ! is_object( $wp_object_cache ) ) {
+			return;
+		}
+
+		$wp_object_cache->group_ops      = array();
+		$wp_object_cache->memcache_debug = array();
+		$wp_object_cache->cache          = array();
+
+		if ( method_exists( $wp_object_cache, '__remoteset' ) ) {
+			$wp_object_cache->__remoteset(); // important
+		}
+	}
+
+	/**
+	 * Reset the WordPress DB query log
+	 */
+	private static function reset_db_query_log() {
+		global $wpdb;
+
+		$wpdb->queries = array();
 	}
 }
