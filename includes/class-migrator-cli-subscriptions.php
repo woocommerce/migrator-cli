@@ -337,7 +337,7 @@ class Migrator_CLI_Subscriptions {
 	private function set_subscription_status( $subscription, $skio_subscription ) {
 
 		if ( ! in_array( $skio_subscription['status'], array( 'ACTIVE', 'CANCELLED', 'FAILED' ), true ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n' ) . 'Unknown subscription status: ' . $skio_subscription['status'] );
+			WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'Unknown subscription status: ' . $skio_subscription['status'] );
 		}
 
 		$subscription->set_status( mb_strtolower( $skio_subscription['status'] ) );
@@ -390,11 +390,11 @@ class Migrator_CLI_Subscriptions {
 		switch ( $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_GATEWAY_KEY ) ) {
 			case 'shopify_payments':
 				if ( ! class_exists( 'WC_Gateway_PPEC_Plugin' ) ) {
-					WP_CLI::line( WP_CLI::colorize( '%RError:%n' ) . 'PayPal Express Plugin not installed. It will be necessary to process payments for this subscription' );
+					WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'PayPal Express Plugin not installed. It will be necessary to process payments for this subscription' );
 				}
 
 				if ( (int) $latest_order->get_meta( Migrator_Cli_Payment_Methods::ORIGINAL_PAYMENT_LAST_4 ) !== (int) $skio_subscription['paymentMethodLastDigits'] ) {
-					WP_CLI::line( WP_CLI::colorize( '%RError:%n' ) . 'Mismatch in subscription payment method last 4' );
+					WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'Mismatch in subscription payment method last 4' );
 					return;
 				}
 
