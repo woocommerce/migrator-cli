@@ -77,7 +77,7 @@ class Migrator_CLI_Subscriptions {
 
 			$args = array(
 				'meta_key'     => '_order_number',
-				'meta_value'   => $skio_order['orderPlatformNumber'],
+				'meta_value'   => preg_replace("/[^0-9]/", "", $skio_order['orderPlatformNumber'] ),
 				'meta_compare' => '=',
 				'numberposts'  => 1,
 			);
