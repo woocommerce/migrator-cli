@@ -684,17 +684,8 @@ class Migrator_CLI_Orders {
 	private function find_line_item_product( $line_item ) {
 		$product_id   = 0;
 		$variation_id = 0;
-		if ( $line_item->sku ) {
-			$_id = wc_get_product_id_by_sku( $line_item->sku );
-			if ( $_id ) {
-				$product_id = $_id;
-				$_product   = wc_get_product( $_id );
-				if ( is_a( $_product, 'WC_Product' ) && $_product->is_type( 'variation' ) ) {
-					$product_id   = $_product->get_parent_id();
-					$variation_id = $_product->get_id();
-				}
-			}
-		} elseif ( $line_item->product_exists ) {
+
+		if ( $line_item->product_exists && $line_item->product_id ) {
 			$_products = wc_get_products(
 				array(
 					'limit'      => 1,
@@ -710,6 +701,18 @@ class Migrator_CLI_Orders {
 					if ( isset( $migration_data['variations_mapping'][ $line_item->variant_id ] ) ) {
 						$variation_id = $migration_data['variations_mapping'][ $line_item->variant_id ];
 					}
+				}
+			}
+		}
+
+		if ( ! $product_id && $line_item->sku ) {
+			$_id = wc_get_product_id_by_sku( $line_item->sku );
+			if ( $_id ) {
+				$product_id = $_id;
+				$_product   = wc_get_product( $_id );
+				if ( is_a( $_product, 'WC_Product' ) && $_product->is_type( 'variation' ) ) {
+					$product_id   = $_product->get_parent_id();
+					$variation_id = $_product->get_id();
 				}
 			}
 		}

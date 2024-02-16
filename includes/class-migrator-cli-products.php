@@ -311,8 +311,10 @@ class Migrator_CLI_Products {
 				}
 			}
 			if ( $this->should_process( 'sku' ) ) {
-				// Setting props directly prevents errors when there are products with duplicated SKUs.
-				$product->set_props( array( 'sku' => $shopify_product->variants[0]->sku ) );
+				// Prevents errors when there are products with duplicated SKUs.
+				add_filter( 'wc_product_has_unique_sku', '__return_false', 10, 3 );
+				$product->set_sku( $shopify_product->variants[0]->sku );
+				remove_filter( 'wc_product_has_unique_sku', '__return_false' );
 			}
 			if ( $this->should_process( 'stock' ) ) {
 				$product->set_manage_stock( 'shopify' === $shopify_product->variants[0]->inventory_management );
@@ -704,20 +706,21 @@ class Migrator_CLI_Products {
 					$variation = $_variation;
 					WP_CLI::line( 'Found existing variation (ID: ' . $variation->get_id() . '). Updating.' );
 				}
-			} elseif ( $variant->sku ) {
-				$check_id      = wc_get_product_id_by_sku( $variant->sku );
-				$check_product = wc_get_product( $check_id );
+			} else {
+				$check_product = wc_get_products(
+					array(
+						'limit'      => 1,
+						'meta_key'   => '_original_variant_id',
+						'meta_value' => $variant->id,
+					)
+				);
 
 				if ( is_a( $check_product, 'WC_Product_Variation' ) ) {
 					// The product is already a variation.
 					$variation = new WC_Product_Variation( $check_product );
-					WP_CLI::line( 'Found existing variation (SKU: ' . $variation->get_sku() . '). Updating.' );
-
-					// The SKU was incorrectly assigned to a product. Remove the SKU
-					// from the product to set it to a new variation.
+					WP_CLI::line( 'Found existing variation (id: ' . $variation->get_id() . '). Updating.' );
 				} elseif ( is_a( $check_product, 'WC_Product' ) ) {
-					$check_product->set_sku( '' );
-					$check_product->save();
+					WP_CLI::error( 'A product variation id was set to a Simple Product. This should not happen. Variation id: ' . $variant->id );
 				}
 			}
 
@@ -753,7 +756,10 @@ class Migrator_CLI_Products {
 
 			if ( $this->should_process( 'sku' ) ) {
 				if ( $variant->sku ) {
+					// Prevents errors when there are products with duplicated SKUs.
+					add_filter( 'wc_product_has_unique_sku', '__return_false', 10, 3 );
 					$variation->set_sku( $variant->sku );
+					remove_filter( 'wc_product_has_unique_sku', '__return_false' );
 				}
 			}
 
