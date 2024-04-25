@@ -131,6 +131,23 @@ class Migrator_CLI_Orders {
 	 * @return WC_Order|null
 	 */
 	private function get_corresponding_woo_order( $shopify_order ) {
+
+		// Prevents duplicated Faire orders.
+		if ( 'faire' === $shopify_order->source_name && $shopify_order->source_url ) {
+			$faire_order_id = $this->get_faire_order_id( $shopify_order );
+
+			$orders = wc_get_orders(
+				array(
+					'meta_key'   => '_faire_order_id',
+					'meta_value' => $faire_order_id,
+				)
+			);
+
+			if ( ! empty( $orders ) ) {
+				return $orders[0];
+			}
+		}
+
 		$orders = wc_get_orders(
 			array(
 				'meta_key'   => '_original_order_id',
@@ -180,6 +197,12 @@ class Migrator_CLI_Orders {
 
 		// Prevent Points and Rewards add order notes.
 		$order->update_meta_data( '_wc_points_earned', true );
+
+		// Prevents duplicated Faire orders.
+		if ( 'faire' === $shopify_order->source_name && $shopify_order->source_url ) {
+			$faire_order_id = $this->get_faire_order_id( $shopify_order );
+			$order->update_meta_data( '_faire_order_id', $faire_order_id );
+		}
 
 		// Update order status.
 		$order->update_status( $this->get_woo_order_status( $shopify_order->financial_status, $shopify_order->fulfillment_status ) );
@@ -510,7 +533,7 @@ class Migrator_CLI_Orders {
 			$item->set_quantity( $line_item->quantity );
 			$item->set_subtotal( $line_item->price * $line_item->quantity );
 			$item->set_total( $line_item->price * $line_item->quantity - $line_item->total_discount );
-			$item->set_name( $line_item->name );
+			$item->set_name( $line_item->title );
 
 			// Taxes
 			$this->set_line_item_taxes( $item, $line_item );
@@ -819,5 +842,17 @@ class Migrator_CLI_Orders {
 				return $transaction;
 			}
 		}
+	}
+
+	/**
+	 * Gets the faire order id from a shopify order.
+	 *
+	 * @param object $shopify_order the shopify order.
+	 * @return string the faire order id.
+	 */
+	private function get_faire_order_id( $shopify_order ) {
+		$faire_id = $shopify_order->source_url;
+		$faire_id = explode( '/', $faire_id );
+		return end( $faire_id );
 	}
 }
