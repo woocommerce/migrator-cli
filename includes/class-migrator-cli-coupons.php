@@ -149,7 +149,7 @@ class Migrator_CLI_Coupons {
 											title
 											updatedAt
 											usageLimit
-											codes(first: 100) {
+											codes(first: 200) {
 												nodes {
 													asyncUsageCount
 													code
