@@ -621,6 +621,10 @@ class Migrator_CLI_Orders {
 
 		foreach ( $shopify_order->fulfillments as $fulfillment ) {
 			foreach ( $fulfillment->tracking_numbers as $index => $tracking_number ) {
+				if ( ! isset( $fulfillment->tracking_urls[ $index ] ) ) {
+					continue;
+				}
+
 				$st->add_tracking_item(
 					$order->get_id(),
 					array(
