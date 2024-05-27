@@ -204,6 +204,14 @@ class Migrator_CLI_Orders {
 			$order->update_meta_data( '_faire_order_id', $faire_order_id );
 		}
 
+		if ( $shopify_order->source_name ) {
+			$order->update_meta_data( '_original_source_name', $shopify_order->source_name );
+		}
+
+		if ( $shopify_order->source_url ) {
+			$order->update_meta_data( '_original_source_url', $shopify_order->source_url );
+		}
+
 		// Update order status.
 		$order->update_status( $this->get_woo_order_status( $shopify_order->financial_status, $shopify_order->fulfillment_status ) );
 		$order->set_order_stock_reduced( true );
