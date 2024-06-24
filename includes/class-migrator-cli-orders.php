@@ -402,7 +402,7 @@ class Migrator_CLI_Orders {
 			$customer->set_first_name( $shopify_order->customer->first_name );
 			$customer->set_last_name( $shopify_order->customer->last_name );
 
-			if ( null !== $shopify_order->billing_address ) {
+			if ( isset( $shopify_order->billing_address ) ) {
 				$customer->set_billing_first_name( $shopify_order->billing_address->first_name );
 				$customer->set_billing_last_name( $shopify_order->billing_address->last_name );
 				$customer->set_billing_company( $shopify_order->billing_address->company );
@@ -416,7 +416,7 @@ class Migrator_CLI_Orders {
 				$customer->set_billing_email( $shopify_order->email );
 			}
 
-			if ( null !== $shopify_order->shipping_address ) {
+			if ( isset( $shopify_order->shipping_address ) ) {
 				$customer->set_shipping_first_name($shopify_order->shipping_address->first_name);
 				$customer->set_shipping_last_name($shopify_order->shipping_address->last_name);
 				$customer->set_shipping_company($shopify_order->shipping_address->company);
