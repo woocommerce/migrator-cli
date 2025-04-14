@@ -4,6 +4,11 @@ class Migrator_CLI_Products {
 	private $fields;
 	private $additional_product_data;
 	private $migration_data;
+	private $batch_count;
+	private $total_products_processed;
+	private $total_products_created;
+	private $total_products_updated;
+	private $total_products_skipped;
 
 	/**
 	 * Migrates products from Shopify into Woo.
@@ -11,8 +16,27 @@ class Migrator_CLI_Products {
 	 * @param $assoc_args ['before'] ['after'] ['limit'] ['perpage'] ['next'] ['status'] ['status'] ['ids'] ['exclude'] ['handle'] ['product-type'] ['product-type'] ['no-update']
 	 */
 	public function migrate_products( $assoc_args ) {
+		WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Starting product migration...' );
 		$start_time = microtime(true);
 		Migrator_CLI_Utils::health_check();
+
+		// Initialize counters for current batch
+		$batch_products_processed = 0;
+		$batch_products_created = 0;
+		$batch_products_updated = 0;
+		$batch_products_skipped = 0;
+
+		// Initialize or increment batch counter
+		if (!isset($this->batch_count)) {
+			$this->batch_count = 1;
+			// Initialize overall statistics as class properties
+			$this->total_products_processed = 0;
+			$this->total_products_created = 0;
+			$this->total_products_updated = 0;
+			$this->total_products_skipped = 0;
+		} else {
+			$this->batch_count++;
+		}
 
 		if ( isset( $assoc_args['fields'] ) ) {
 			$this->fields = explode( ',', $assoc_args['fields'] );
@@ -63,13 +87,19 @@ class Migrator_CLI_Products {
 			WP_CLI::error( 'No Shopify products found.' );
 		}
 
-		WP_CLI::line( sprintf( 'Found %d products in Shopify. Processing %d products.', count( $response_data->data->products ), min( $limit, $perpage, count( $response_data->data->products ) ) ) );
+		$products_in_batch = count( $response_data->data->products );
+		$products_to_process = min( $limit, $perpage, $products_in_batch );
+		
+		WP_CLI::line( sprintf( 'Found %d products in Shopify. Processing %d products (Batch #%d).', 
+			$products_in_batch, $products_to_process, $this->batch_count ) );
 
 		foreach ( $response_data->data->products as $shopify_product ) {
 			$product_start_time = microtime(true);
 
 			if ( in_array( $shopify_product->id, $exclude, true ) || $this->preg_match_array( $shopify_product->variants[0]->sku, $exclude ) ) {
 				WP_CLI::line( sprintf( 'Product %s is excluded. Skipping...', $shopify_product->handle ) );
+				$batch_products_skipped++;
+				$this->total_products_skipped++;
 				continue;
 			}
 
@@ -88,6 +118,8 @@ class Migrator_CLI_Products {
 
 			if ( 'all' !== $product_type && $product_type !== $curent_product_type ) {
 				WP_CLI::line( sprintf( 'Product %s is %s. Skipping...', $shopify_product->handle, $curent_product_type ) );
+				$batch_products_skipped++;
+				$this->total_products_skipped++;
 				continue;
 			}
 
@@ -101,10 +133,17 @@ class Migrator_CLI_Products {
 				WP_CLI::line( sprintf( 'Product %s already exists (%s). %s...', $shopify_product->handle, $woo_product->get_id(), $no_update ? 'Skipping' : 'Updating' ) );
 
 				if ( $no_update ) {
+					$batch_products_skipped++;
+					$this->total_products_skipped++;
 					continue;
+				} else {
+					$batch_products_updated++;
+					$this->total_products_updated++;
 				}
 			} else {
 				WP_CLI::line( sprintf( 'Product %s does not exist. Creating...', $shopify_product->handle ) );
+				$batch_products_created++;
+				$this->total_products_created++;
 			}
 
 			$create_update_start_time = microtime(true);
@@ -114,8 +153,20 @@ class Migrator_CLI_Products {
 			
 			$product_total_time = microtime(true) - $product_start_time;
 			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Total processing time for product %s: %.4f seconds', $shopify_product->handle, $product_total_time ) );
+			
+			$batch_products_processed++;
+			$this->total_products_processed++;
+			
+			WP_CLI::line( sprintf( 'Product %d/%d in current batch completed', $batch_products_processed, $products_to_process ) );
 		}
 
+		// Display batch statistics
+		WP_CLI::line( '===============================' );
+		WP_CLI::line( WP_CLI::colorize( '%BStats for batch #' . $this->batch_count . ':%n' ) );
+		WP_CLI::line( sprintf( 'Products processed: %d', $batch_products_processed ) );
+		WP_CLI::line( sprintf( 'Products created: %d', $batch_products_created ) );
+		WP_CLI::line( sprintf( 'Products updated: %d', $batch_products_updated ) );
+		WP_CLI::line( sprintf( 'Products skipped: %d', $batch_products_skipped ) );
 		WP_CLI::line( '===============================' );
 
 		$next_link = $response_data->next_link;
@@ -131,6 +182,18 @@ class Migrator_CLI_Products {
 			);
 		} else {
 			$total_time = microtime(true) - $start_time;
+			
+			// Display overall statistics
+			WP_CLI::line( '===============================' );
+			WP_CLI::line( WP_CLI::colorize( '%BOverall migration stats:%n' ) );
+			WP_CLI::line( sprintf( 'Total API calls: %d', $this->batch_count ) );
+			WP_CLI::line( sprintf( 'Total products processed: %d', $this->total_products_processed ) );
+			WP_CLI::line( sprintf( 'Total products created: %d', $this->total_products_created ) );
+			WP_CLI::line( sprintf( 'Total products updated: %d', $this->total_products_updated ) );
+			WP_CLI::line( sprintf( 'Total products skipped: %d', $this->total_products_skipped ) );
+			WP_CLI::line( sprintf( 'Products per second: %.2f', $this->total_products_processed / $total_time ) );
+			WP_CLI::line( '===============================' );
+			
 			WP_CLI::success( sprintf( 'All products have been processed in %.4f seconds.', $total_time ) );
 		}
 	}
@@ -438,11 +501,11 @@ class Migrator_CLI_Products {
 	 * @return string sanitized description.
 	 */
 	private function sanitize_product_description( $html ) {
-		$html = mb_convert_encoding( $html, 'HTML-ENTITIES', 'UTF-8' );
-
 		if ( ! $html ) {
 			return '';
 		}
+		
+		$html = htmlspecialchars_decode(htmlspecialchars($html, ENT_QUOTES, 'UTF-8'));
 
 		$html = preg_replace( '~<script(.*?)</script>~Usi', '', $html );
 		$html = preg_replace( '~<style(.*?)</style>~Usi', '', $html );
