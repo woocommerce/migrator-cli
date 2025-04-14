@@ -11,6 +11,7 @@ class Migrator_CLI_Products {
 	 * @param $assoc_args ['before'] ['after'] ['limit'] ['perpage'] ['next'] ['status'] ['status'] ['ids'] ['exclude'] ['handle'] ['product-type'] ['product-type'] ['no-update']
 	 */
 	public function migrate_products( $assoc_args ) {
+		$start_time = microtime(true);
 		Migrator_CLI_Utils::health_check();
 
 		if ( isset( $assoc_args['fields'] ) ) {
@@ -39,6 +40,7 @@ class Migrator_CLI_Products {
 		$product_type = isset( $assoc_args['product-type'] ) ? $assoc_args['product-type'] : 'all';
 		$no_update    = isset( $assoc_args['no-update'] ) ? true : false;
 
+		$api_start_time = microtime(true);
 		if ( $next_link ) {
 			$response_data = Migrator_CLI_Utils::rest_request( $next_link );
 		} else {
@@ -54,6 +56,8 @@ class Migrator_CLI_Products {
 				)
 			);
 		}
+		$api_time = microtime(true) - $api_start_time;
+		WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'API request completed in %.4f seconds', $api_time ) );
 
 		if ( ! $response_data || empty( $response_data->data->products ) ) {
 			WP_CLI::error( 'No Shopify products found.' );
@@ -62,6 +66,7 @@ class Migrator_CLI_Products {
 		WP_CLI::line( sprintf( 'Found %d products in Shopify. Processing %d products.', count( $response_data->data->products ), min( $limit, $perpage, count( $response_data->data->products ) ) ) );
 
 		foreach ( $response_data->data->products as $shopify_product ) {
+			$product_start_time = microtime(true);
 
 			if ( in_array( $shopify_product->id, $exclude, true ) || $this->preg_match_array( $shopify_product->variants[0]->sku, $exclude ) ) {
 				WP_CLI::line( sprintf( 'Product %s is excluded. Skipping...', $shopify_product->handle ) );
@@ -69,7 +74,10 @@ class Migrator_CLI_Products {
 			}
 
 			WP_CLI::line( 'Fetching additional product data...' );
+			$fetch_start_time = microtime(true);
 			$this->fetch_additional_shopify_product_data( $shopify_product );
+			$fetch_time = microtime(true) - $fetch_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Additional data fetched in %.4f seconds', $fetch_time ) );
 
 			// Check if product is single or variable by checking how many
 			// variants it has.
@@ -84,7 +92,10 @@ class Migrator_CLI_Products {
 			}
 
 			// Check if the product already exists in Woo by handle.
+			$lookup_start_time = microtime(true);
 			$woo_product = $this->get_corresponding_woo_product( $shopify_product );
+			$lookup_time = microtime(true) - $lookup_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Product lookup completed in %.4f seconds', $lookup_time ) );
 
 			if ( $woo_product ) {
 				WP_CLI::line( sprintf( 'Product %s already exists (%s). %s...', $shopify_product->handle, $woo_product->get_id(), $no_update ? 'Skipping' : 'Updating' ) );
@@ -96,7 +107,13 @@ class Migrator_CLI_Products {
 				WP_CLI::line( sprintf( 'Product %s does not exist. Creating...', $shopify_product->handle ) );
 			}
 
+			$create_update_start_time = microtime(true);
 			$this->create_or_update_woo_product( $shopify_product, $woo_product );
+			$create_update_time = microtime(true) - $create_update_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Product creation/update completed in %.4f seconds', $create_update_time ) );
+			
+			$product_total_time = microtime(true) - $product_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Total processing time for product %s: %.4f seconds', $shopify_product->handle, $product_total_time ) );
 		}
 
 		WP_CLI::line( '===============================' );
@@ -113,7 +130,8 @@ class Migrator_CLI_Products {
 				)
 			);
 		} else {
-			WP_CLI::success( 'All products have been processed.' );
+			$total_time = microtime(true) - $start_time;
+			WP_CLI::success( sprintf( 'All products have been processed in %.4f seconds.', $total_time ) );
 		}
 	}
 
@@ -166,6 +184,7 @@ class Migrator_CLI_Products {
 	 * @param object $shopify_product the Shopify product data.
 	 */
 	private function fetch_additional_shopify_product_data( $shopify_product ) {
+		$start_time = microtime(true);
 		$response = Migrator_CLI_Utils::graphql_request(
 			array(
 				'query' => 'query {
@@ -199,6 +218,8 @@ class Migrator_CLI_Products {
 		$response_data = json_decode( wp_remote_retrieve_body( $response ) );
 
 		$this->additional_product_data = $response_data->data->product;
+		$execution_time = microtime(true) - $start_time;
+		WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'GraphQL request completed in %.4f seconds', $execution_time ) );
 	}
 
 	/**
@@ -239,6 +260,7 @@ class Migrator_CLI_Products {
 	 * @param WC_Product $woo_product the Woo product.
 	 */
 	private function create_or_update_woo_product( $shopify_product, $woo_product = null ) {
+		$start_time = microtime(true);
 		$this->migration_data = array(
 			'product_id'         => $shopify_product->id,
 			'original_url'       => '',
@@ -291,11 +313,17 @@ class Migrator_CLI_Products {
 		}
 
 		if ( $this->should_process( 'category' ) ) {
+			$category_start_time = microtime(true);
 			$product->set_category_ids( $this->get_woo_product_category_ids() );
+			$category_time = microtime(true) - $category_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Category processing completed in %.4f seconds', $category_time ) );
 		}
 
 		if ( $this->should_process( 'tag' ) ) {
+			$tag_start_time = microtime(true);
 			$product->set_tag_ids( $this->get_woo_product_tag_ids( $shopify_product ) );
+			$tag_time = microtime(true) - $tag_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Tag processing completed in %.4f seconds', $tag_time ) );
 		}
 
 		// Simple product.
@@ -330,29 +358,47 @@ class Migrator_CLI_Products {
 
 		// The operations below require product id, so we need to save the
 		// product first.
+		$save_start_time = microtime(true);
 		$product->save();
+		$save_time = microtime(true) - $save_start_time;
+		WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Initial product save completed in %.4f seconds', $save_time ) );
 
 		// Product brand
 		if ( $this->should_process( 'brand' ) ) {
+			$brand_start_time = microtime(true);
 			$this->set_woo_product_brand( $shopify_product, $product );
+			$brand_time = microtime(true) - $brand_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Setting product brand completed in %.4f seconds', $brand_time ) );
 		}
 
 		// Process images.
 		if ( $this->should_process( 'images' ) ) {
+			$images_start_time = microtime(true);
 			$this->upload_images( $shopify_product, $product );
 			$product->set_image_id( $this->get_woo_product_image_id( $shopify_product ) );
 			$product->set_gallery_image_ids( $this->get_woo_product_gallery_image_ids( $shopify_product ) );
+			$images_time = microtime(true) - $images_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Image processing completed in %.4f seconds', $images_time ) );
 		}
 
+		$save_start_time = microtime(true);
 		$product->save();
+		$save_time = microtime(true) - $save_start_time;
+		WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Product save after images completed in %.4f seconds', $save_time ) );
 
 		// Variations.
 		if ( $this->is_variable_product( $shopify_product ) ) {
+			$variations_start_time = microtime(true);
 			$this->create_or_update_woo_product_variations( $shopify_product, $product );
+			$variations_time = microtime(true) - $variations_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Variations processing completed in %.4f seconds', $variations_time ) );
 		}
 
 		if ( $this->should_process( 'seo' ) ) {
+			$seo_start_time = microtime(true);
 			$this->update_seo_title_description( $shopify_product, $product );
+			$seo_time = microtime(true) - $seo_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'SEO update completed in %.4f seconds', $seo_time ) );
 		}
 
 		// Migration metas.
@@ -364,8 +410,15 @@ class Migrator_CLI_Products {
 		$product->update_meta_data( '_migration_data', $this->migration_data );
 		$product->update_meta_data( '_original_product_id', $shopify_product->id ); // For searching later
 
+		$final_save_start_time = microtime(true);
 		$product->save();
+		$final_save_time = microtime(true) - $final_save_start_time;
+		WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Final product save completed in %.4f seconds', $final_save_time ) );
+		
 		WP_CLI::line( 'Woo Product ID: ' . $product->get_id() );
+		
+		$total_time = microtime(true) - $start_time;
+		WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Total create/update time: %.4f seconds', $total_time ) );
 	}
 
 	/**
@@ -422,6 +475,7 @@ class Migrator_CLI_Products {
 	 * @return array
 	 */
 	private function get_woo_product_category_ids() {
+		$start_time = microtime(true);
 		$category_ids = array();
 		$collections  = $this->additional_product_data->collections->edges;
 
@@ -447,6 +501,9 @@ class Migrator_CLI_Products {
 			$category_ids[] = get_option( 'default_product_cat' );
 		}
 
+		$execution_time = microtime(true) - $start_time;
+		WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Category processing completed in %.4f seconds', $execution_time ) );
+		
 		return $category_ids;
 	}
 
@@ -457,6 +514,7 @@ class Migrator_CLI_Products {
 	 * @return array
 	 */
 	private function get_woo_product_tag_ids( $shopify_product ) {
+		$start_time = microtime(true);
 		$tag_ids = array();
 
 		$tags = $shopify_product->tags;
@@ -486,6 +544,9 @@ class Migrator_CLI_Products {
 			$tag_ids[] = $woo_product_tag['term_id'];
 		}
 
+		$execution_time = microtime(true) - $start_time;
+		WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Tag processing completed in %.4f seconds', $execution_time ) );
+		
 		return $tag_ids;
 	}
 
@@ -571,17 +632,27 @@ class Migrator_CLI_Products {
 	 * @param WC_Product $product the Woo product.
 	 */
 	private function upload_images( $shopify_product, $product ) {
+		$start_time = microtime(true);
+		$image_count = 0;
+		$skipped_count = 0;
+		
 		foreach ( $shopify_product->images as $image ) {
 			// Check if the image has already been uploaded.
 			if ( isset( $this->migration_data['images_mapping'][ $image->id ] ) && wp_attachment_is_image( $this->migration_data['images_mapping'][ $image->id ] ) ) {
+				$skipped_count++;
 				continue;
 			}
 
+			$upload_start = microtime(true);
 			// Upload the image to the media library.
 			$image_id = media_sideload_image( $image->src, $product->get_id(), '', 'id' );
-
+			$upload_time = microtime(true) - $upload_start;
+			
 			if ( is_wp_error( $image_id ) ) {
 				WP_CLI::line( sprintf( 'Error uploading %s: %s', $image->src, $image_id->get_error_message() ) );
+			} else {
+				WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Image upload completed in %.4f seconds', $upload_time ) );
+				$image_count++;
 			}
 
 			// Save the mapping.
@@ -589,6 +660,9 @@ class Migrator_CLI_Products {
 		}
 
 		$this->migration_data['images_mapping'] = $this->migration_data['images_mapping'];
+		
+		$total_time = microtime(true) - $start_time;
+		WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'All images processed in %.4f seconds. Uploaded: %d, Skipped: %d', $total_time, $image_count, $skipped_count ) );
 	}
 
 	/**
@@ -627,9 +701,11 @@ class Migrator_CLI_Products {
 	 * @param WC_Product $product the Woo product.
 	 */
 	private function create_or_update_woo_product_variations( $shopify_product, $product ) {
+		$start_time = microtime(true);
 		$attribute_taxonomy_mapping = array();
 
 		if ( $this->should_process( 'attributes' ) ) {
+			$attr_start_time = microtime(true);
 			// Create attribute taxonomies if needed.
 			foreach ( $shopify_product->options as $option ) {
 				// Check if the attribute taxonomy exists in WooCommerce.
@@ -691,10 +767,19 @@ class Migrator_CLI_Products {
 			);
 
 			$product->set_attributes( $attributes );
+			$attr_save_start = microtime(true);
 			$product->save();
+			$attr_save_time = microtime(true) - $attr_save_start;
+			
+			$attr_time = microtime(true) - $attr_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Attribute processing completed in %.4f seconds (save: %.4f seconds)', $attr_time, $attr_save_time ) );
 		}
 
+		$variants_count = 0;
+		$variants_start_time = microtime(true);
+		
 		foreach ( $shopify_product->variants as $variant ) {
+			$variant_start_time = microtime(true);
 			WP_CLI::line( 'Processing variant ' . $variant->id );
 			$variation = new WC_Product_Variation();
 
@@ -776,12 +861,24 @@ class Migrator_CLI_Products {
 			$variation->update_meta_data( '_original_variant_id', $variant->id );
 			$variation->update_meta_data( '_original_product_id', $variant->product_id );
 
+			$variation_save_start = microtime(true);
 			$variation->save();
+			$variation_save_time = microtime(true) - $variation_save_start;
 
 			$this->migration_data['variations_mapping'][ $variant->id ] = $variation->get_id();
+			$variants_count++;
+			
+			$variant_time = microtime(true) - $variant_start_time;
+			WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Variation processing completed in %.4f seconds (save: %.4f seconds)', $variant_time, $variation_save_time ) );
 		}
+		
+		$variants_time = microtime(true) - $variants_start_time;
+		WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'All %d variations processed in %.4f seconds', $variants_count, $variants_time ) );
 
 		$this->clean_up_orphan_variations( $product );
+		
+		$total_time = microtime(true) - $start_time;
+		WP_CLI::line( WP_CLI::colorize( '%BPerformance:%n ' ) . sprintf( 'Total variations processing time: %.4f seconds', $total_time ) );
 	}
 
 	/**
