@@ -199,7 +199,6 @@ class Migrator_CLI_Products {
 		$response_data = json_decode( wp_remote_retrieve_body( $response ) );
 
 		$this->additional_product_data = $response_data->data->product;
-		sleep( 1 ); // Pause the execution for 1 second to avoid rate limit.
 	}
 
 	/**
