@@ -573,14 +573,10 @@ class Migrator_CLI_Products {
 	 * @param object $shopify_product the Shopify product data.
 	 * @param WC_Product $product the Woo product.
 	 */
-	private function upload_images( $shopify_product, $product ) {
-		$image_count = 0;
-		$skipped_count = 0;
-		
+	private function upload_images( $shopify_product, $product ) {	
 		foreach ( $shopify_product->images as $image ) {
 			// Check if the image has already been uploaded.
 			if ( isset( $this->migration_data['images_mapping'][ $image->id ] ) && wp_attachment_is_image( $this->migration_data['images_mapping'][ $image->id ] ) ) {
-				$skipped_count++;
 				continue;
 			}
 
@@ -589,8 +585,6 @@ class Migrator_CLI_Products {
 			
 			if ( is_wp_error( $image_id ) ) {
 				WP_CLI::line( sprintf( 'Error uploading %s: %s', $image->src, $image_id->get_error_message() ) );
-			} else {
-				$image_count++;
 			}
 
 			// Save the mapping.
@@ -626,7 +620,7 @@ class Migrator_CLI_Products {
 			return array();
 		}
 
-		return array_diff( array_values( $this->migration_data['images_mapping'] ), array( $this->get_woo_product_image_id( $shopify_product ) ) );
+		return array_diff( array_values( $this->migration_data['images_mapping'] ), array( $this->get_woo_product_image_id( $shopify_product, $this->migration_data['images_mapping'] ) ) );
 	}
 
 	/**
@@ -702,8 +696,6 @@ class Migrator_CLI_Products {
 			$product->set_attributes( $attributes );
 			$product->save();
 		}
-
-		$variants_count = 0;
 		
 		foreach ( $shopify_product->variants as $variant ) {
 			WP_CLI::line( 'Processing variant ' . $variant->id );
@@ -790,7 +782,6 @@ class Migrator_CLI_Products {
 			$variation->save();
 
 			$this->migration_data['variations_mapping'][ $variant->id ] = $variation->get_id();
-			$variants_count++;
 		}
 
 		$this->clean_up_orphan_variations( $product );
