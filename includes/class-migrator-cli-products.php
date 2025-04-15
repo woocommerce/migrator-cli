@@ -388,12 +388,14 @@ class Migrator_CLI_Products {
 	 * @return string sanitized description.
 	 */
 	private function sanitize_product_description( $html ) {
-		$html = mb_convert_encoding( $html, 'HTML-ENTITIES', 'UTF-8' );
+		// Use htmlspecialchars to handle HTML entities instead of mb_convert_encoding
+		$html = htmlspecialchars_decode(htmlspecialchars($html, ENT_QUOTES, 'UTF-8', false), ENT_QUOTES);
 
 		if ( ! $html ) {
 			return '';
 		}
 
+		
 		$html = preg_replace( '~<script(.*?)</script>~Usi', '', $html );
 		$html = preg_replace( '~<style(.*?)</style>~Usi', '', $html );
 		$html = wp_kses_post( $html );
