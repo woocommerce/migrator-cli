@@ -236,7 +236,7 @@ class Migrator_CLI_Products {
 					break 2; // Break outer loop
 				}
 
-				Migrator_CLI_Utils::maybe_stop_the_insanity();
+				Migrator_CLI_Utils::reset_in_memory_cache(); // Use this for now
 			}
 
 		} while ( $pageInfo->hasNextPage && $processed_count < $limit );
@@ -660,6 +660,25 @@ class Migrator_CLI_Products {
 	 * @return float
 	 */
 	private function get_converted_weight( $weight, $weight_unit ) {
+		if ( null === $weight || null === $weight_unit ) {
+			return 0.0;
+		}
+
+		// Map Shopify GraphQL WeightUnit enum to our expected keys
+		$unit_map = array(
+			'GRAMS'     => 'g',
+			'KILOGRAMS' => 'kg',
+			'POUNDS'    => 'lb',
+			'OUNCES'    => 'oz',
+		);
+
+		$shopify_unit_key = isset( $unit_map[ $weight_unit ] ) ? $unit_map[ $weight_unit ] : null;
+
+		if ( ! $shopify_unit_key ) {
+			WP_CLI::warning( "Unsupported Shopify weight unit received: {$weight_unit}. Skipping weight conversion." );
+			return $weight; // Return original weight if unit is unknown
+		}
+
 		$store_weight_unit = get_option( 'woocommerce_weight_unit' );
 		if ( 'lbs' === $store_weight_unit ) {
 			$store_weight_unit = 'lb';
@@ -692,7 +711,12 @@ class Migrator_CLI_Products {
 			),
 		);
 
-		return $weight * $conversion[ $weight_unit ][ $store_weight_unit ];
+		if ( ! isset( $conversion[ $shopify_unit_key ] ) || ! isset( $conversion[ $shopify_unit_key ][ $store_weight_unit ] ) ) {
+			WP_CLI::warning( "Weight conversion mapping not found for Shopify unit '{$shopify_unit_key}' to store unit '{$store_weight_unit}'. Skipping conversion." );
+            return $weight; // Return original weight if mapping missing
+        }
+
+		return (float) $weight * $conversion[ $shopify_unit_key ][ $store_weight_unit ];
 	}
 
 	/**
