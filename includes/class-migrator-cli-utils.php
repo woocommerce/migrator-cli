@@ -150,6 +150,8 @@ class Migrator_CLI_Utils {
 			if (isset($response_body['errors'])) {
 				$retry_count++;
 				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'GraphQL API returned errors (Retry ' . $retry_count . '/' . $max_retries . ')' );
+				// log the errors
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'GraphQL API returned errors: ' . wp_json_encode( $response_body['errors'] ) );
 				
 				if ($retry_count > $max_retries) {
 					WP_CLI::error('Maximum GraphQL API retries reached');
