@@ -3,6 +3,45 @@
 class Migrator_CLI extends WP_CLI_Command {
 
 	/**
+	 * Initializes the migrator settings by prompting for Shopify credentials.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp migrator init
+	 *
+	 * @when after_wp_load
+	 */
+	public function init( $args, $assoc_args ) {
+		WP_CLI::line( 'Initializing Migrator CLI Settings...' );
+
+		// Prompt for Access Token
+		$access_token = \WP_CLI\Utils\prompt( 'Enter Shopify Admin API Access Token: ');
+		if ( empty( $access_token ) ) {
+			WP_CLI::error( 'Access Token cannot be empty.' );
+			return;
+		}
+
+		// Prompt for Shopify Domain
+		$domain = \WP_CLI\Utils\prompt( 'Enter Shopify Domain (e.g., your-store.myshopify.com): ');
+		if ( empty( $domain ) ) {
+			WP_CLI::error( 'Shopify Domain cannot be empty.' );
+			return;
+		}
+
+		// Validate domain format (basic check)
+		if ( ! preg_match( '/^[a-zA-Z0-9\-]+\.myshopify\.com$/', $domain ) ) {
+			 WP_CLI::warning( 'The domain format looks unusual. Please ensure it is correct (e.g., your-store.myshopify.com).' );
+		}
+
+		// Save credentials to options table
+		update_option( 'migrator_cli_shopify_token', $access_token );
+		update_option( 'migrator_cli_shopify_domain', $domain );
+
+		WP_CLI::success( 'Migrator settings initialized successfully.' );
+		WP_CLI::line( 'Access Token and Domain have been saved to WordPress options.' );
+	}
+
+	/**
 	 * 1. Fetch orders from Shopify then loop through them.
 	 * 2. Check if the corresponding Woo order has tags.
 	 * 3. Set the tags for Woo order if need.

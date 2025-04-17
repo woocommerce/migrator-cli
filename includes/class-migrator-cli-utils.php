@@ -10,12 +10,15 @@ class Migrator_CLI_Utils {
 			WP_CLI::error( 'WooCommerce is not active.' );
 		}
 
-		if ( ! ACCESS_TOKEN ) {
-			WP_CLI::error( 'Missing Shopify access token.' );
+		$token = get_option('migrator_cli_shopify_token');
+		$domain = get_option('migrator_cli_shopify_domain');
+
+		if ( empty($token) ) {
+			WP_CLI::error( 'Missing Shopify access token. Please run `wp migrator init` to set credentials.' );
 		}
 
-		if ( ! SHOPIFY_DOMAIN ) {
-			WP_CLI::error( 'Missing Shopify domain.' );
+		if ( empty($domain) ) {
+			WP_CLI::error( 'Missing Shopify domain. Please run `wp migrator init` to set credentials.' );
 		}
 	}
 
@@ -51,14 +54,14 @@ class Migrator_CLI_Utils {
 
 		do {
 			if ( strpos( $endpoint, 'http' ) === false ) {
-				$endpoint = 'https://' . SHOPIFY_DOMAIN . '/admin/api/2023-04/' . $endpoint;
+				$endpoint = 'https://' . self::get_shopify_domain() . '/admin/api/2023-04/' . $endpoint;
 			}
 
 			$response = wp_remote_get(
 				$endpoint,
 				array(
 					'headers' => array(
-						'X-Shopify-Access-Token' => ACCESS_TOKEN,
+						'X-Shopify-Access-Token' => self::get_access_token(),
 						'Accept'                 => 'application/json',
 					),
 					'body'    => array_filter( $body ),
@@ -116,10 +119,10 @@ class Migrator_CLI_Utils {
 
 		while ($retry_count <= $max_retries) {
 			$response = wp_remote_post(
-				'https://' . SHOPIFY_DOMAIN . '/admin/api/2023-04/graphql.json',
+				'https://' . self::get_shopify_domain() . '/admin/api/2023-04/graphql.json',
 				array(
 					'headers' => array(
-						'X-Shopify-Access-Token' => ACCESS_TOKEN,
+						'X-Shopify-Access-Token' => self::get_access_token(),
 						'Content-Type'           => 'application/json',
 					),
 					'body'    => wp_json_encode( $body ),
@@ -287,5 +290,23 @@ class Migrator_CLI_Utils {
 	public static function get_store_currency() {
 		$response_data = self::rest_request( 'shop.json' );
 		return $response_data->shop->currency;
+	}
+
+	/**
+	 * Gets the Shopify Access Token from options.
+	 *
+	 * @return string|false Token or false if not set.
+	 */
+	private static function get_access_token() {
+	    return get_option('migrator_cli_shopify_token');
+	}
+
+	/**
+	 * Gets the Shopify Domain from options.
+	 *
+	 * @return string|false Domain or false if not set.
+	 */
+	private static function get_shopify_domain() {
+	    return get_option('migrator_cli_shopify_domain');
 	}
 }
