@@ -101,12 +101,18 @@ class Migrator_CLI_Utils {
 	/**
 	 * Executes a request to the Shopify GraphQL API
 	 *
-	 * @param array $body the request body.
-	 * @return array
+	 * @param string $query The GraphQL query string.
+	 * @param array  $variables Optional. Variables for the query.
+	 * @return object|WP_Error Decoded data object on success, WP_Error on failure.
 	 */
-	public static function graphql_request( $body ) {
+	public static function graphql_request( $query, $variables = array() ) {
 		$max_retries = 10;
 		$retry_count = 0;
+
+		$body = array(
+			'query' => $query,
+			'variables' => $variables,
+		);
 
 		while ($retry_count <= $max_retries) {
 			$response = wp_remote_post(
@@ -117,18 +123,20 @@ class Migrator_CLI_Utils {
 						'Content-Type'           => 'application/json',
 					),
 					'body'    => wp_json_encode( $body ),
+					'timeout' => 30,
 				)
 			);
 
 			// Check if response is an error
 			if (is_wp_error($response)) {
 				$retry_count++;
-				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'GraphQL API error: ' . $response->get_error_message() . ' (Retry ' . $retry_count . '/' . $max_retries . ')' );
-				
+				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'GraphQL wp_remote_post error: ' . $response->get_error_message() . ' (Retry ' . $retry_count . '/' . $max_retries . ')' );
+
 				if ($retry_count > $max_retries) {
-					WP_CLI::error('Maximum GraphQL API retries reached');
+					WP_CLI::error('Maximum GraphQL API retries reached after wp_remote_post error.');
 					return $response;
 				}
+				sleep(5);
 				continue;
 			}
 
@@ -136,37 +144,68 @@ class Migrator_CLI_Utils {
 			$status_code = wp_remote_retrieve_response_code($response);
 			if ($status_code == 429) {
 				$retry_count++;
-				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'GraphQL API rate limit reached (Retry ' . $retry_count . '/' . $max_retries . ')' );
-				
+				WP_CLI::line( WP_CLI::colorize( '%YWarning:%n ' ) . 'GraphQL API rate limit reached (429). Retrying... (' . $retry_count . '/' . $max_retries . ')' );
+
 				if ($retry_count > $max_retries) {
-					WP_CLI::error('Maximum GraphQL API retries reached');
-					return $response;
+					WP_CLI::error('Maximum GraphQL API retries reached after rate limiting.');
+					return new WP_Error('rate_limit', 'Exceeded retry limit after rate limiting', array('status' => $status_code));
 				}
+				sleep(10);
 				continue;
 			}
 
 			// Check response body for errors
-			$response_body = json_decode(wp_remote_retrieve_body($response), true);
-			if (isset($response_body['errors'])) {
-				$retry_count++;
-				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'GraphQL API returned errors (Retry ' . $retry_count . '/' . $max_retries . ')' );
-				// log the errors
-				WP_CLI::line( WP_CLI::colorize( '%RError:%n ' ) . 'GraphQL API returned errors: ' . wp_json_encode( $response_body['errors'] ) );
-				
-				if ($retry_count > $max_retries) {
-					WP_CLI::error('Maximum GraphQL API retries reached');
-					return $response;
-				}
-				continue;
+			$response_body_raw = wp_remote_retrieve_body($response);
+			$response_body_decoded = json_decode($response_body_raw);
+
+			if (json_last_error() !== JSON_ERROR_NONE) {
+			    WP_CLI::warning( 'GraphQL response body is not valid JSON: ' . $response_body_raw );
+			    if ($status_code >= 500) {
+			        $retry_count++;
+			        WP_CLI::line('Retrying due to invalid JSON response (Status: ' . $status_code . ')... (' . $retry_count . '/' . $max_retries . ')');
+			        if ($retry_count > $max_retries) {
+			            WP_CLI::error('Maximum GraphQL API retries reached after invalid JSON response.');
+			            return new WP_Error('invalid_json', 'Invalid JSON response after retries', array('status' => $status_code, 'body' => $response_body_raw));
+                    }
+                    sleep(5);
+                    continue;
+                } else {
+                    return new WP_Error('invalid_json', 'Invalid JSON response', array('status' => $status_code, 'body' => $response_body_raw));
+                }
 			}
 
-			// If we get here, the request was successful
-			return $response;
+			if (isset($response_body_decoded->errors)) {
+				$error_message = 'GraphQL API returned errors: ' . json_encode( $response_body_decoded->errors );
+				WP_CLI::warning( $error_message );
+				
+				if ($status_code >= 500 || strpos(json_encode($response_body_decoded->errors), 'Internal server error') !== false) {
+				    $retry_count++;
+				    WP_CLI::line('Retrying due to server-side GraphQL errors... (' . $retry_count . '/' . $max_retries . ')');
+				    if ($retry_count > $max_retries) {
+                        WP_CLI::error('Maximum GraphQL API retries reached after server-side errors.');
+                        return new WP_Error('graphql_server_error', $error_message, array('status' => $status_code, 'response' => $response_body_decoded));
+                    }
+                    sleep(5);
+                    continue;
+				} else {
+				    return new WP_Error('graphql_error', $error_message, array('status' => $status_code, 'response' => $response_body_decoded));
+				}
+			}
+
+			if (!isset($response_body_decoded->data)) {
+			    $error_message = 'GraphQL response missing "data" field.';
+			    WP_CLI::warning( $error_message . ' Response: ' . $response_body_raw );
+                return new WP_Error('graphql_missing_data', $error_message, array('status' => $status_code, 'response' => $response_body_decoded));
+            }
+
+			return $response_body_decoded->data;
 		}
 
 		// If we get here, we've exceeded our retry limit
 		WP_CLI::error('GraphQL API request failed after ' . $max_retries . ' retries');
-		return $response;
+		if (isset($response) && is_wp_error($response)) return $response;
+		if (isset($status_code)) return new WP_Error('max_retries_exceeded', 'Max retries exceeded', array('status' => $status_code));
+		return new WP_Error('max_retries_exceeded', 'Max retries exceeded');
 	}
 
 	/**
