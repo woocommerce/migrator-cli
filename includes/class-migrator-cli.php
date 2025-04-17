@@ -15,14 +15,14 @@ class Migrator_CLI extends WP_CLI_Command {
 		WP_CLI::line( 'Initializing Migrator CLI Settings...' );
 
 		// Prompt for Access Token
-		$access_token = \WP_CLI\Utils\prompt( 'Enter Shopify Admin API Access Token: ');
+		$access_token = WP_CLI::prompt( 'Enter Shopify Admin API Access Token: ' );
 		if ( empty( $access_token ) ) {
 			WP_CLI::error( 'Access Token cannot be empty.' );
 			return;
 		}
 
 		// Prompt for Shopify Domain
-		$domain = \WP_CLI\Utils\prompt( 'Enter Shopify Domain (e.g., your-store.myshopify.com): ');
+		$domain = WP_CLI::prompt( 'Enter Shopify Domain (e.g., your-store.myshopify.com): ' );
 		if ( empty( $domain ) ) {
 			WP_CLI::error( 'Shopify Domain cannot be empty.' );
 			return;
