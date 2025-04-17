@@ -138,6 +138,53 @@ class Migrator_CLI extends WP_CLI_Command {
 	public function products( $args, $assoc_args ) {
 		Migrator_CLI_Utils::set_importing_const();
 
+		// Fetch Shopify credentials
+		$access_token = get_option( 'migrator_cli_shopify_token' );
+		$domain       = get_option( 'migrator_cli_shopify_domain' );
+
+		if ( ! $access_token || ! $domain ) {
+			WP_CLI::error( 'Shopify credentials not found. Please run `wp migrator init` first.', false );
+			// Optionally, prompt again or exit. Exiting for now.
+			return;
+		}
+
+		// Fetch product count from Shopify GraphQL API
+		$api_version = '2024-04'; // Use a recent stable API version
+		$graphql_endpoint = "https://{$domain}/admin/api/{$api_version}/graphql.json";
+		$query = '{ productsCount { count } }'; // Simple query to get the count
+
+		WP_CLI::line( 'Fetching total product count from Shopify...' );
+
+		$response = wp_remote_post( $graphql_endpoint, array(
+			'headers' => array(
+				'Content-Type'           => 'application/json',
+				'X-Shopify-Access-Token' => $access_token,
+			),
+			'body'    => json_encode( array( 'query' => $query ) ),
+			'timeout' => 30, // Set a reasonable timeout
+		) );
+
+		if ( is_wp_error( $response ) ) {
+			WP_CLI::warning( 'Failed to fetch product count: ' . $response->get_error_message() );
+		} else {
+			$status_code = wp_remote_retrieve_response_code( $response );
+			$body        = wp_remote_retrieve_body( $response );
+			$data        = json_decode( $body, true );
+
+			if ( $status_code === 200 && isset( $data['data']['productsCount']['count'] ) ) {
+				$count = $data['data']['productsCount']['count'];
+				WP_CLI::line( "Total products found on Shopify: " . $count );
+			} else {
+				$error_message = isset( $data['errors'][0]['message'] ) ? $data['errors'][0]['message'] : 'Unknown error';
+				WP_CLI::warning( "Could not retrieve product count from Shopify (Status: {$status_code}, Error: {$error_message})." );
+				if ( $status_code === 401 ) {
+					WP_CLI::warning( "Please check if your Shopify Access Token is correct and has the necessary permissions (read_products)." );
+				}
+			}
+		}
+
+		WP_CLI::line( 'Starting product migration...' );
+
 		$products = new Migrator_CLI_Products();
 		$products->migrate_products( $assoc_args );
 	}
