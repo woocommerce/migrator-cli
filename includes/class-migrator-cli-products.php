@@ -122,26 +122,17 @@ class Migrator_CLI_Products {
 
 		// --- GraphQL Migration Logic ---
 		$limit        = isset( $assoc_args['limit'] ) ? (int) $assoc_args['limit'] : PHP_INT_MAX;
-		$perpage      = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 250 ) : 50; // Max 250, default 50
+		$perpage      = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 250 ) : 250; // Max 250, default 250
 		$no_update    = isset( $assoc_args['no-update'] );
-		$exclude_ids  = array(); // Initialize as empty array
-		if ( isset( $assoc_args['exclude'] ) ) {
-		    $exclude_ids = explode( ',', $assoc_args['exclude'] );
-		}
+		$exclude_ids  = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
 		$after_cursor = isset( $assoc_args['next' ] ) ? $assoc_args['next'] : null; // Use 'next' for cursor
 		$processed_count = 0;
 
 		// Build GraphQL query filter string
 		$query_parts = array();
-		$target_rest_ids = null; // Initialize to null
+		$target_rest_ids = isset( $assoc_args['ids'] ) ? explode(',', $assoc_args['ids']) : null;
 		if ( isset( $assoc_args['status'] ) ) {
 			$query_parts[] = 'status:' . strtoupper( $assoc_args['status'] ); // GraphQL uses uppercase status
-		}
-		if ( isset( $assoc_args['ids'] ) ) {
-			// Assuming IDs are Shopify REST IDs. Need to convert to GraphQL GIDs or query differently.
-			// For now, we handle this by skipping if ID doesn't match.
-			// A better approach would be a bulk `nodes(ids: [...])` query if possible.
-			$target_rest_ids = explode(',', $assoc_args['ids']);
 		}
 		if ( isset( $assoc_args['handle'] ) ) {
 			$query_parts[] = 'handle:' . $assoc_args['handle'];
@@ -164,7 +155,12 @@ class Migrator_CLI_Products {
 			WP_CLI::line( 'Using query filter: ' . $query_filter );
 		}
 
+		WP_CLI::line( ''); // Add a newline for readability
+		$overall_start_time = microtime( true );
+		$total_duration = 0;
+
 		do {
+			$batch_start_time = microtime( true );
 			$batch_limit = min( $perpage, $limit - $processed_count );
 			if ( $batch_limit <= 0 ) {
 				break;
@@ -215,6 +211,7 @@ class Migrator_CLI_Products {
 				}
 
 				WP_CLI::line( sprintf( 'Processing product %s (Rest ID: %s)...', $shopify_product->handle, $rest_id ) );
+				$product_start_time = microtime( true ); // Start timer for individual product
 
 				// Check if product exists
 				$woo_product = $this->get_corresponding_woo_product( $shopify_product );
@@ -223,12 +220,15 @@ class Migrator_CLI_Products {
 					WP_CLI::line( sprintf( 'Skipping product %s (ID: %s) - Product already exists and --no-update flag is set.', $shopify_product->handle, $woo_product->get_id() ) );
 				} else {
 					try {
-						// $this->fetch_additional_shopify_product_data( $shopify_product ); // No longer needed
 						$this->create_or_update_woo_product( $shopify_product, $woo_product );
 					} catch ( Exception $e ) {
 						WP_CLI::warning( sprintf( 'Failed processing product %s (Rest ID: %s). Error: %s', $shopify_product->handle, $rest_id, $e->getMessage() ) );
 					}
 				}
+
+				$product_end_time = microtime( true );
+				$product_duration = $product_end_time - $product_start_time;
+				WP_CLI::line( sprintf( 'Product %s (Rest ID: %s) processed in %.2f seconds.', $shopify_product->handle, $rest_id, $product_duration ) );
 
 				$processed_count++;
 				if ( $processed_count >= $limit ) {
@@ -239,9 +239,26 @@ class Migrator_CLI_Products {
 				Migrator_CLI_Utils::reset_in_memory_cache(); // Use this for now
 			}
 
+			$batch_end_time = microtime( true );
+			WP_CLI::line( sprintf( 'Batch processed in %.2f seconds.', $batch_end_time - $batch_start_time ) );
+			WP_CLI::line( ''); // Add a newline for readability
+
 		} while ( $pageInfo->hasNextPage && $processed_count < $limit );
 
+		$overall_end_time = microtime( true );
+		$total_duration = $overall_end_time - $overall_start_time;
+
+		WP_CLI::line( '---------------------------------' );
 		WP_CLI::success( sprintf( 'Finished migrating products. Processed: %d', $processed_count ) );
+		WP_CLI::line( sprintf( 'Total migration time: %.2f seconds.', $total_duration ) );
+
+		if ( $processed_count > 0 ) {
+			$average_duration = $total_duration / $processed_count;
+			WP_CLI::line( sprintf( 'Average time per product: %.2f seconds.', $average_duration ) );
+		} else {
+			WP_CLI::line( 'No products processed to calculate average time.' );
+		}
+		WP_CLI::line( '---------------------------------' );
 	}
 
 	private function get_product_fields() {
@@ -285,47 +302,6 @@ class Migrator_CLI_Products {
 			}
 		}
 		return false;
-	}
-
-	/**
-	 * Fetches additional product data from Shopify and saves it to $this->additional_product_data.
-	 *
-	 * @param object $shopify_product the Shopify product data.
-	 */
-	private function fetch_additional_shopify_product_data( $shopify_product ) {
-		$response = Migrator_CLI_Utils::graphql_request(
-			array(
-				'query' => 'query {
-				product(id: "gid://shopify/Product/' . $shopify_product->id . '") {
-					id
-					handle
-					onlineStoreUrl
-					collections(first: 100) {
-						edges {
-							node {
-								id
-								title
-								handle
-							}
-						}
-					}
-					metafields(first: 100) {
-						edges {
-							node {
-								key
-								namespace
-								value
-							}
-						}
-					}
-				}
-			}',
-			)
-		);
-
-		$response_data = json_decode( wp_remote_retrieve_body( $response ) );
-
-		$this->additional_product_data = $response_data->data->product;
 	}
 
 	/**
@@ -768,6 +744,8 @@ class Migrator_CLI_Products {
 			return;
 		}
 
+		WP_CLI::line( 'Starting image processing...' );
+
 		// Clear existing mapping for this run unless it's already populated (e.g., from a previous partial run for this product)
 		if ( empty( $this->migration_data['images_mapping'] ) ) {
 		    $this->migration_data['images_mapping'] = array();
@@ -779,27 +757,28 @@ class Migrator_CLI_Products {
 
 			// Check if the image has already been uploaded and mapped in this session or a previous one.
 			if ( isset( $this->migration_data['images_mapping'][ $image_gql_id ] ) && wp_attachment_is_image( $this->migration_data['images_mapping'][ $image_gql_id ] ) ) {
-				WP_CLI::line( sprintf( 'Image %s already mapped to attachment ID %s. Skipping upload.', $image_gql_id, $this->migration_data['images_mapping'][ $image_gql_id ] ) );
+				WP_CLI::line( sprintf( '- Image %s already mapped to attachment ID %s. Skipping upload.', $image_gql_id, $this->migration_data['images_mapping'][ $image_gql_id ] ) );
 				continue;
 			}
 
 			// Upload the image to the media library.
-			WP_CLI::line( sprintf( 'Uploading image %s from %s...', $image_gql_id, $image_node->url ) );
+			WP_CLI::line( sprintf( '- Uploading image %s from %s...', $image_gql_id, $image_node->url ) );
+			$upload_start_time = microtime(true);
 			$image_id = media_sideload_image( $image_node->url, $product->get_id(), $image_node->altText, 'id' );
+			$upload_duration = microtime(true) - $upload_start_time;
 
 			if ( is_wp_error( $image_id ) ) {
-				WP_CLI::warning( sprintf( 'Error uploading %s: %s', $image_node->url, $image_id->get_error_message() ) );
+				WP_CLI::warning( sprintf( ' - Error uploading %s: %s (Duration: %.2f seconds)', $image_node->url, $image_id->get_error_message(), $upload_duration ) );
 				continue; // Skip mapping if upload failed
 			}
 
 			// Save the mapping using GraphQL ID as key.
 			$this->migration_data['images_mapping'][ $image_gql_id ] = $image_id;
-			WP_CLI::line( sprintf( 'Mapped image %s to attachment ID %s.', $image_gql_id, $image_id ) );
+			WP_CLI::line( sprintf( ' - Mapped image %s to attachment ID %s. (Upload took %.2f seconds)', $image_gql_id, $image_id, $upload_duration ) );
 		}
-		
+
 		// Update the migration data meta on the product immediately after processing images
 		$product->update_meta_data( '_migration_data', $this->migration_data );
-		// $product->save(); // Avoid saving here, will be saved later
 	}
 
 	/**
