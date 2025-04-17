@@ -83,6 +83,10 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * [--remove-orphans]
 	 * : Remove orphans order items
 	 *
+	 * [--async-images]
+	 * : Schedule image uploads to run asynchronously in the background via Action Scheduler.
+	 * : If not set, images are uploaded synchronously during the command execution.
+	 *
 	 * Example:
 	 * wp migrator products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU_*"
 	 *
