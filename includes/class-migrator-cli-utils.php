@@ -237,4 +237,14 @@ class Migrator_CLI_Utils {
 
 		$wpdb->queries = array();
 	}
+
+	/**
+	 * Returns Shopify store currency.
+	 *
+	 * @return string Currency code.
+	 */
+	public static function get_store_currency() {
+		$response_data = self::rest_request( 'shop.json' );
+		return $response_data->shop->currency;
+	}
 }
