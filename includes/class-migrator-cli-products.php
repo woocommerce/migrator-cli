@@ -450,14 +450,25 @@ class Migrator_CLI_Products {
 			$this->set_woo_product_brand( $shopify_product, $product );
 		}
 
-		// Process images.
-		if ( $this->should_process( 'images' ) ) {
-			$this->upload_images( $shopify_product, $product );
-			$product->set_image_id( $this->get_woo_product_image_id( $shopify_product ) );
-			$product->set_gallery_image_ids( $this->get_woo_product_gallery_image_ids( $shopify_product ) );
+		// Determine if running in async mode
+		$is_async = isset( $this->assoc_args['async-images'] );
+
+		// Store featured image GQL ID if async (needed for finalization)
+		if ( $is_async && ! empty( $shopify_product->featuredImage ) ) {
+		    $this->migration_data['featured_image_gql_id'] = $shopify_product->featuredImage->id;
 		}
 
-		$product->save(); // Save again after images/brand
+		// Process images (conditionally sync/async)
+		if ( $this->should_process( 'images' ) ) {
+			$this->upload_images( $shopify_product, $product, $is_async ); // Pass async flag
+			// Only set images immediately if running synchronously
+			if ( ! $is_async ) {
+			    $product->set_image_id( $this->get_woo_product_image_id( $shopify_product ) );
+			    $product->set_gallery_image_ids( $this->get_woo_product_gallery_image_ids( $shopify_product ) );
+			}
+		}
+
+		$product->save(); // Save again after brand/sync images
 
 		// Variations.
 		if ( $this->is_variable_product( $shopify_product ) ) {
@@ -737,47 +748,107 @@ class Migrator_CLI_Products {
 	 *
 	 * @param object $shopify_product the Shopify product data.
 	 * @param WC_Product $product the Woo product.
+	 * @param bool $is_async Whether to schedule uploads asynchronously.
 	 */
-	private function upload_images( $shopify_product, $product ) {
+	private function upload_images( $shopify_product, $product, $is_async ) {
 		// Use images connection from GraphQL object
 		if ( ! property_exists( $shopify_product, 'images' ) || empty( $shopify_product->images->edges ) ) {
 			return;
 		}
 
-		WP_CLI::line( 'Starting image processing...' );
+		$action_hook = 'migrator_cli_upload_product_image';
+		$scheduling_duration_total = 0;
+		$images_to_process_count = 0;
 
-		// Clear existing mapping for this run unless it's already populated (e.g., from a previous partial run for this product)
-		if ( empty( $this->migration_data['images_mapping'] ) ) {
+		WP_CLI::line( sprintf('Starting image processing (%s mode)...', $is_async ? 'async' : 'sync') );
+
+		// Ensure mapping array exists in migration data
+		if ( empty( $this->migration_data['images_mapping'] ) || ! is_array($this->migration_data['images_mapping']) ) {
 		    $this->migration_data['images_mapping'] = array();
+		}
+
+		// Pre-count images that need processing (for async finalization logic)
+		if ($is_async) {
+		    foreach ( $shopify_product->images->edges as $image_edge ) {
+		        $image_gql_id_check = $image_edge->node->id;
+		        if ( ! isset( $this->migration_data['images_mapping'][ $image_gql_id_check ] ) || ! wp_attachment_is_image( $this->migration_data['images_mapping'][ $image_gql_id_check ] ) ) {
+		            $images_to_process_count++;
+		        }
+		    }
+		    // Store the count needed by the background job
+		    $this->migration_data['total_images_to_schedule'] = $images_to_process_count;
+		    if ($images_to_process_count === 0) {
+		        WP_CLI::line(' - No new images require processing for this product.');
+		        // Update meta now in case only featured_image_gql_id was added
+		        $product->update_meta_data( '_migration_data', $this->migration_data );
+		        return; // Skip the loop if nothing to process
+		    }
+		    WP_CLI::line( sprintf( ' - Found %d images requiring processing.', $images_to_process_count ) );
 		}
 
 		foreach ( $shopify_product->images->edges as $image_edge ) {
 			$image_node = $image_edge->node;
 			$image_gql_id = $image_node->id; // GraphQL ID of the image
+			$image_url = $image_node->url;
+			$image_alt_text = $image_node->altText;
 
-			// Check if the image has already been uploaded and mapped in this session or a previous one.
+			// Check if the image has already been mapped (relevant for sync mode or reruns)
 			if ( isset( $this->migration_data['images_mapping'][ $image_gql_id ] ) && wp_attachment_is_image( $this->migration_data['images_mapping'][ $image_gql_id ] ) ) {
-				WP_CLI::line( sprintf( '- Image %s already mapped to attachment ID %s. Skipping upload.', $image_gql_id, $this->migration_data['images_mapping'][ $image_gql_id ] ) );
+				WP_CLI::line( sprintf( '- Image %s already mapped to attachment ID %s. Skipping.', $image_gql_id, $this->migration_data['images_mapping'][ $image_gql_id ] ) );
 				continue;
 			}
 
-			// Upload the image to the media library.
-			WP_CLI::line( sprintf( '- Uploading image %s from %s...', $image_gql_id, $image_node->url ) );
-			$upload_start_time = microtime(true);
-			$image_id = media_sideload_image( $image_node->url, $product->get_id(), $image_node->altText, 'id' );
-			$upload_duration = microtime(true) - $upload_start_time;
+			if ( $is_async ) {
+				// --- Async Mode: Schedule Action --- 
+				if ( ! function_exists('as_schedule_single_action') ) {
+				    WP_CLI::warning('Action Scheduler function as_schedule_single_action() not found. Cannot schedule async image uploads. Skipping image: ' . $image_gql_id);
+				    continue;
+				}
+				$args = array(
+					'product_id' => $product->get_id(),
+					'image_gql_id' => $image_gql_id,
+					'image_url' => $image_url,
+					'image_alt_text' => $image_alt_text,
+				);
+				$schedule_start_time = microtime(true);
+				try {
+				    $action_id = as_schedule_single_action( time(), $action_hook, $args, 'woo-migrator-image-uploads' );
+				    $schedule_duration = microtime(true) - $schedule_start_time;
+				    $scheduling_duration_total += $schedule_duration;
+				    if ($action_id) {
+				        WP_CLI::line( sprintf( ' - Scheduled upload for image %s (Action ID: %d). (Scheduling took %.4f seconds)', $image_gql_id, $action_id, $schedule_duration ) );
+				    } else {
+				        WP_CLI::warning( sprintf( ' - Failed to schedule upload for image %s. (Scheduling took %.4f seconds)', $image_gql_id, $schedule_duration ) );
+				    }
+                } catch ( Exception $e ) {
+                    $schedule_duration = microtime(true) - $schedule_start_time;
+                    WP_CLI::warning( sprintf( ' - Exception while scheduling upload for image %s: %s (Scheduling took %.4f seconds)', $image_gql_id, $e->getMessage(), $schedule_duration ) );
+                }
+			} else {
+				// --- Sync Mode: Upload Directly --- 
+				WP_CLI::line( sprintf( '- Uploading image %s from %s...', $image_gql_id, $image_url ) );
+				$upload_start_time = microtime(true);
+				$image_id = media_sideload_image( $image_url, $product->get_id(), $image_alt_text, 'id' );
+				$upload_duration = microtime(true) - $upload_start_time;
 
-			if ( is_wp_error( $image_id ) ) {
-				WP_CLI::warning( sprintf( ' - Error uploading %s: %s (Duration: %.2f seconds)', $image_node->url, $image_id->get_error_message(), $upload_duration ) );
-				continue; // Skip mapping if upload failed
+				if ( is_wp_error( $image_id ) ) {
+					WP_CLI::warning( sprintf( ' - Error uploading %s: %s (Duration: %.2f seconds)', $image_url, $image_id->get_error_message(), $upload_duration ) );
+					continue; // Skip mapping if upload failed
+				}
+
+				// Save the mapping using GraphQL ID as key.
+				$this->migration_data['images_mapping'][ $image_gql_id ] = $image_id;
+				WP_CLI::line( sprintf( ' - Mapped image %s to attachment ID %s. (Upload took %.2f seconds)', $image_gql_id, $image_id, $upload_duration ) );
 			}
-
-			// Save the mapping using GraphQL ID as key.
-			$this->migration_data['images_mapping'][ $image_gql_id ] = $image_id;
-			WP_CLI::line( sprintf( ' - Mapped image %s to attachment ID %s. (Upload took %.2f seconds)', $image_gql_id, $image_id, $upload_duration ) );
 		}
 
-		// Update the migration data meta on the product immediately after processing images
+		if ($is_async) {
+		    WP_CLI::line( sprintf( 'Finished image scheduling for this product. Total scheduling time: %.4f seconds.', $scheduling_duration_total ) );
+        } else {
+            WP_CLI::line( 'Finished synchronous image processing for this product.' );
+        }
+
+		// Update the migration data meta immediately (contains featured_image_gql_id in async mode)
 		$product->update_meta_data( '_migration_data', $this->migration_data );
 	}
 

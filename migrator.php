@@ -31,5 +31,8 @@ add_action(
 		require_once __DIR__ . '/includes/class-migrator-cli-subscriptions.php';
 
 		WP_CLI::add_command( 'migrator', 'Migrator_CLI' );
+
+		// Register Action Scheduler hook for async image uploads
+		add_action( 'migrator_cli_upload_product_image', array( 'Migrator_CLI_Utils', 'handle_scheduled_image_upload' ), 10, 4 );
 	}
 );

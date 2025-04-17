@@ -288,4 +288,119 @@ class Migrator_CLI_Utils {
 		$response_data = self::rest_request( 'shop.json' );
 		return $response_data->shop->currency;
 	}
+
+	/**
+	 * Handles the scheduled action for uploading a single product image.
+	 *
+	 * @param int    $product_id     WooCommerce Product ID.
+	 * @param string $image_gql_id   Shopify GraphQL Image ID.
+	 * @param string $image_url      Shopify Image URL.
+	 * @param string $image_alt_text Shopify Image Alt Text.
+	 */
+	public static function handle_scheduled_image_upload( $product_id, $image_gql_id, $image_url, $image_alt_text ) {
+	    WP_CLI::debug( sprintf( "Action Scheduler: Handling image upload for product %d, image GQL ID %s", $product_id, $image_gql_id ) );
+
+	    $product = wc_get_product( $product_id );
+	    if ( ! $product ) {
+	        WP_CLI::warning( sprintf( "Action Scheduler: Product %d not found for image %s. Cannot process upload.", $product_id, $image_gql_id ) );
+	        return; // Or throw exception? Returning stops the action.
+	    }
+
+	    // Check if already mapped (in case action runs twice or was handled manually)
+	    $migration_data = $product->get_meta( '_migration_data', true ); // Get single value
+	    if ( ! empty( $migration_data['images_mapping'][ $image_gql_id ] ) && wp_attachment_is_image( $migration_data['images_mapping'][ $image_gql_id ] ) ) {
+            WP_CLI::debug( sprintf( "Action Scheduler: Image %s already mapped for product %d. Skipping.", $image_gql_id, $product_id ) );
+            return;
+        }
+
+	    WP_CLI::debug( sprintf( "Action Scheduler: Uploading image %s for product %d from %s...", $image_gql_id, $product_id, $image_url ) );
+	    $start_time = microtime(true);
+	    $attachment_id = media_sideload_image( $image_url, $product_id, $image_alt_text, 'id' );
+	    $duration = microtime(true) - $start_time;
+
+	    if ( is_wp_error( $attachment_id ) ) {
+	        WP_CLI::warning( sprintf( "Action Scheduler: Failed to upload image %s for product %d. Error: %s (Duration: %.2f s)", $image_gql_id, $product_id, $attachment_id->get_error_message(), $duration ) );
+	    } else {
+	        WP_CLI::debug( sprintf( "Action Scheduler: Successfully uploaded image %s for product %d. Attachment ID: %d (Duration: %.2f s)", $image_gql_id, $product_id, $attachment_id, $duration ) );
+
+	        // Update the mapping in product meta
+	        // Re-fetch migration data to avoid stale data if multiple actions run close together
+	        $migration_data = $product->get_meta( '_migration_data', true );
+	        if ( ! is_array( $migration_data ) ) {
+	            $migration_data = array(); // Initialize if meta doesn't exist or is not an array
+	        }
+	        if ( ! isset( $migration_data['images_mapping'] ) || ! is_array( $migration_data['images_mapping'] ) ) {
+                $migration_data['images_mapping'] = array();
+            }
+	        $migration_data['images_mapping'][ $image_gql_id ] = $attachment_id;
+
+	        if ( $product->update_meta_data( '_migration_data', $migration_data ) ) {
+	             WP_CLI::debug( sprintf( "Action Scheduler: Updated image mapping for product %d.", $product_id ) );
+
+	             // --- Finalization Logic --- 
+	             // Check if all scheduled images for this product are now mapped
+                 $total_scheduled = isset($migration_data['total_images_to_schedule']) ? (int) $migration_data['total_images_to_schedule'] : 0;
+                 $currently_mapped = count($migration_data['images_mapping']);
+
+                 WP_CLI::debug( sprintf( "Action Scheduler: Product %d - Mapped %d / %d scheduled images.", $product_id, $currently_mapped, $total_scheduled ) );
+
+                 if ($total_scheduled > 0 && $currently_mapped >= $total_scheduled) {
+                     WP_CLI::line( sprintf( "Action Scheduler: All %d images processed for product %d. Finalizing assignment...", $total_scheduled, $product_id ) );
+                     
+                     $featured_image_gql_id = isset($migration_data['featured_image_gql_id']) ? $migration_data['featured_image_gql_id'] : null;
+                     $images_mapping = $migration_data['images_mapping'];
+                     $needs_save = false;
+
+                     // Set Featured Image
+                     $new_featured_id = 0;
+                     if ( $featured_image_gql_id && isset( $images_mapping[ $featured_image_gql_id ] ) ) {
+                         $new_featured_id = (int) $images_mapping[ $featured_image_gql_id ];
+                     }
+                     if ($new_featured_id !== (int) $product->get_image_id()) {
+                        WP_CLI::debug( "Action Scheduler: Setting featured image for product {$product_id} to {$new_featured_id}." );
+                        $product->set_image_id( $new_featured_id );
+                        $needs_save = true;
+                     }
+
+                     // Set Gallery Images
+                     $new_gallery_ids = array();
+                     foreach ( $images_mapping as $gql_id => $wp_id ) {
+                         if ( $gql_id !== $featured_image_gql_id && $wp_id && wp_attachment_is_image($wp_id) ) {
+                             $new_gallery_ids[] = (int) $wp_id;
+                         }
+                     }
+                     $current_gallery_ids = $product->get_gallery_image_ids();
+                     sort($new_gallery_ids);
+                     sort($current_gallery_ids);
+                     if ( $new_gallery_ids !== $current_gallery_ids ) {
+                         WP_CLI::debug( "Action Scheduler: Setting gallery images for product {$product_id}." );
+                         $product->set_gallery_image_ids( $new_gallery_ids );
+                         $needs_save = true;
+                     }
+
+                     // Clean up temporary meta keys
+                     unset($migration_data['total_images_to_schedule']);
+                     unset($migration_data['featured_image_gql_id']);
+                     if ($product->update_meta_data( '_migration_data', $migration_data )) {
+                         WP_CLI::debug( "Action Scheduler: Cleaned up temporary keys in migration data for product {$product_id}." );
+                     } else {
+                         WP_CLI::warning( "Action Scheduler: Failed to clean up temporary keys in migration data for product {$product_id}." );
+                     }
+
+                     // Save product if changes were made
+                     if ($needs_save) {
+                         if ($product->save()) {
+                             WP_CLI::debug( "Action Scheduler: Saved product {$product_id} after finalizing image assignments." );
+                         } else {
+                             WP_CLI::warning( "Action Scheduler: Failed to save product {$product_id} after finalizing image assignments." );
+                         }
+                     } else {
+                        WP_CLI::debug( "Action Scheduler: No changes needed for featured/gallery images on product {$product_id}." );
+                     }
+                 }
+	        } else {
+	             WP_CLI::warning( sprintf( "Action Scheduler: Failed to update image mapping meta for product %d.", $product_id ) );
+	        }
+	    }
+	}
 }
