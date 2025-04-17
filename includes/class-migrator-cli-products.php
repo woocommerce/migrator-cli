@@ -76,7 +76,7 @@ class Migrator_CLI_Products {
 							}
 						}
 					}
-					metafields(first: 20, namespace: "global", keys: ["title_tag", "description_tag"]) {
+					metafields(first: 20, namespace: "global") {
 						edges {
 							node {
 								namespace
