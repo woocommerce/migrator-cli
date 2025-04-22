@@ -763,7 +763,8 @@ class Migrator_CLI_Products {
 
 			// Log memory before upload
 			$memory_before = round( memory_get_usage() / 1024 / 1024, 2 ); // MB
-			WP_CLI::line( sprintf( '- Uploading image %s from %s... (Memory before: %s MB)', $image_gql_id, $image_node->url, $memory_before ) );
+			$memory_limit = ini_get('memory_limit'); // Get configured memory limit
+			WP_CLI::line( sprintf( '- Uploading image %s from %s... (Memory Usage: %s MB / Limit: %s)', $image_gql_id, $image_node->url, $memory_before, $memory_limit ) );
 			
 			// Upload the image to the media library.
 			$upload_start_time = microtime(true);
