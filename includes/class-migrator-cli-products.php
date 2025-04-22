@@ -761,20 +761,26 @@ class Migrator_CLI_Products {
 				continue;
 			}
 
+			// Log memory before upload
+			$memory_before = round( memory_get_usage() / 1024 / 1024, 2 ); // MB
+			WP_CLI::line( sprintf( '- Uploading image %s from %s... (Memory before: %s MB)', $image_gql_id, $image_node->url, $memory_before ) );
+			
 			// Upload the image to the media library.
-			WP_CLI::line( sprintf( '- Uploading image %s from %s...', $image_gql_id, $image_node->url ) );
 			$upload_start_time = microtime(true);
 			$image_id = media_sideload_image( $image_node->url, $product->get_id(), $image_node->altText, 'id' );
 			$upload_duration = microtime(true) - $upload_start_time;
 
+			// Log memory after upload
+			$memory_after = round( memory_get_usage() / 1024 / 1024, 2 ); // MB
+
 			if ( is_wp_error( $image_id ) ) {
-				WP_CLI::warning( sprintf( ' - Error uploading %s: %s (Duration: %.2f seconds)', $image_node->url, $image_id->get_error_message(), $upload_duration ) );
+				WP_CLI::warning( sprintf( ' - Error uploading %s: %s (Duration: %.2f seconds, Memory after: %s MB)', $image_node->url, $image_id->get_error_message(), $upload_duration, $memory_after ) );
 				continue; // Skip mapping if upload failed
 			}
 
 			// Save the mapping using GraphQL ID as key.
 			$this->migration_data['images_mapping'][ $image_gql_id ] = $image_id;
-			WP_CLI::line( sprintf( ' - Mapped image %s to attachment ID %s. (Upload took %.2f seconds)', $image_gql_id, $image_id, $upload_duration ) );
+			WP_CLI::line( sprintf( ' - Mapped image %s to attachment ID %s. (Upload took %.2f seconds, Memory after: %s MB)', $image_gql_id, $image_id, $upload_duration, $memory_after ) );
 		}
 
 		// Update the migration data meta on the product immediately after processing images
