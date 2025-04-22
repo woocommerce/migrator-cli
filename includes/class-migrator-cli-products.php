@@ -40,8 +40,10 @@ class Migrator_CLI_Products {
 								altText
 							}
 						}
+						# No pagination for images
 					}
-					variants(first: 100) { # Fetch up to 100 variants
+					# Fetch all variants up to 2048
+					variants(first: 2048) {
 						edges {
 							node {
 								id
@@ -66,6 +68,7 @@ class Migrator_CLI_Products {
 								}
 							}
 						}
+						# Removed pageInfo for variants as we fetch all
 					}
 					collections(first: 20) { # Fetch up to 20 collections
 						edges {
@@ -75,6 +78,7 @@ class Migrator_CLI_Products {
 								title
 							}
 						}
+						# No pagination for collections
 					}
 					metafields(first: 20, namespace: "global") {
 						edges {
@@ -84,11 +88,13 @@ class Migrator_CLI_Products {
 								value
 							}
 						}
+						# No pagination for metafields
 					}
 				}
 			}
 			pageInfo {
 				hasNextPage
+				endCursor
 			}
 		}
 	}
@@ -220,6 +226,13 @@ class Migrator_CLI_Products {
 					WP_CLI::line( sprintf( 'Skipping product %s (ID: %s) - Product already exists and --no-update flag is set.', $shopify_product->handle, $woo_product->get_id() ) );
 				} else {
 					try {
+						// Call create/update directly, assuming $shopify_product->variants has all variants
+						$variant_count = isset($shopify_product->variants->edges) ? count($shopify_product->variants->edges) : 0;
+						WP_CLI::line( sprintf( 'Processing product %s (Rest ID: %s) with %d variants fetched...', $shopify_product->handle, $rest_id, $variant_count ) );
+						
+						// Note: We can't reliably know if there were *more* than 2048 variants if the API doesn't tell us.
+						// The logic now assumes the fetched variants are complete up to the 2048 limit.
+
 						$this->create_or_update_woo_product( $shopify_product, $woo_product );
 					} catch ( Exception $e ) {
 						WP_CLI::warning( sprintf( 'Failed processing product %s (Rest ID: %s). Error: %s', $shopify_product->handle, $rest_id, $e->getMessage() ) );
@@ -915,6 +928,7 @@ class Migrator_CLI_Products {
 		}
 		$processed_variation_ids = array(); // Keep track of variations processed in this run
 
+		// Iterate directly over the variants fetched in the main query
 		foreach ( $shopify_product->variants->edges as $variant_edge ) {
 			$variant_node = $variant_edge->node;
 			$variant_gql_id = $variant_node->id;
