@@ -116,7 +116,7 @@ class Migrator_CLI_Utils {
 
 		while ($retry_count <= $max_retries) {
 			$response = wp_remote_post(
-				'https://' . SHOPIFY_DOMAIN . '/admin/api/2024-04/graphql.json',
+				'https://' . SHOPIFY_DOMAIN . '/admin/api/2023-04/graphql.json',
 				array(
 					'headers' => array(
 						'X-Shopify-Access-Token' => ACCESS_TOKEN,
