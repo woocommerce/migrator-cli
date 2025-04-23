@@ -114,6 +114,10 @@ class Migrator_CLI_Products {
 			return; // Error handled in parse_and_validate_args
 		}
 
+		// Fetch estimated count for progress bar
+		$total_count = $this->fetch_estimated_total_count( $args );
+		$progress = \WP_CLI\Utils\make_progress_bar( 'Importing Products', $total_count );
+
 		$overall_start_time = microtime( true );
 		$total_processed_count = 0;
 		$limit_remaining = $args->limit;
@@ -141,10 +145,11 @@ class Migrator_CLI_Products {
 				break;
 			}
 
-			// 2. Process the fetched batch
+			// 2. Process the fetched batch, passing the progress bar object
 			$batch_result = $this->process_product_batch(
 				$response_data->products,
-				$args // Pass parsed args for processing rules
+				$args,
+				$progress
 			);
 
 			$batch_processed_count = $batch_result['processed_count'];
@@ -164,6 +169,7 @@ class Migrator_CLI_Products {
 		} while ( $has_next_page && $limit_remaining > 0 );
 
 		// 3. Finalize
+		$progress->finish(); // Finish the progress bar
 		$this->restore_hooks(); // Restore hooks at the very end
 		$this->print_summary( $total_processed_count, $overall_start_time );
 	}
@@ -266,9 +272,10 @@ class Migrator_CLI_Products {
 	 *
 	 * @param array $products Array of product edges from GraphQL.
 	 * @param object $args Parsed command arguments.
+	 * @param \WP_CLI\Utils\ProgressBar $progress Progress bar instance.
 	 * @return array Result containing processed count and last cursor.
 	 */
-	private function process_product_batch( $products, $args ) {
+	private function process_product_batch( $products, $args, $progress ) {
 		$processed_count = 0;
 		$last_cursor = null;
 
@@ -276,14 +283,15 @@ class Migrator_CLI_Products {
 			$shopify_product = $edge->node;
 			$last_cursor     = $edge->cursor;
 
-			$process_result = $this->process_single_product( $shopify_product, $args );
+			$process_result = $this->process_single_product(
+				$shopify_product,
+				$args,
+				$progress
+			);
 
 			if ( $process_result['processed'] ) {
 				$processed_count++;
 			}
-
-			// We don't break the batch loop based on the overall limit here,
-			// the main loop handles the overall limit.
 		}
 
 		return array(
@@ -297,11 +305,13 @@ class Migrator_CLI_Products {
 	 *
 	 * @param object $shopify_product Product node from GraphQL.
 	 * @param object $args Parsed command arguments.
+	 * @param \WP_CLI\Utils\ProgressBar $progress Progress bar instance.
 	 * @return array Result indicating if processed.
 	 */
-	private function process_single_product( $shopify_product, $args ) {
+	private function process_single_product( $shopify_product, $args, $progress ) {
 		$rest_id = basename( $shopify_product->id );
 		$processed = false;
+		$ticked = false; // Track if progress was ticked for this product
 
 		WP_CLI::line( sprintf( 'Processing product %s (Rest ID: %s)...', $shopify_product->handle, $rest_id ) );
 		$product_start_time = microtime( true );
@@ -309,12 +319,15 @@ class Migrator_CLI_Products {
 		// Handle --ids filter
 		if ( isset( $args->target_rest_ids ) && ! in_array( $rest_id, $args->target_rest_ids ) ) {
 			WP_CLI::line( sprintf( 'Skipping product %s (Rest ID: %s) - Not in target IDs.', $shopify_product->handle, $rest_id ) );
+			$progress->tick(); // Tick even if skipped when filtering by ID
+			$ticked = true;
 			return array( 'processed' => false );
 		}
 
 		// Handle --exclude filter
 		if ( in_array( $rest_id, $args->exclude_ids ) ) {
 			WP_CLI::line( sprintf( 'Skipping product %s (Rest ID: %s) - Excluded.', $shopify_product->handle, $rest_id ) );
+			// Don't tick for excludes as they aren't part of the estimated total
 			return array( 'processed' => false );
 		}
 
@@ -323,18 +336,24 @@ class Migrator_CLI_Products {
 
 		if ( $woo_product && $args->no_update ) {
 			WP_CLI::line( sprintf( 'Skipping product %s (ID: %s) - Product already exists and --no-update flag is set.', $shopify_product->handle, $woo_product->get_id() ) );
+			$progress->tick(); // Tick for existing products if not updating
+			$ticked = true;
 		} else {
 			try {
 				// Create or update the product
 				$this->create_or_update_woo_product( $shopify_product, $woo_product );
 				$processed = true;
+				$progress->tick(); // Tick after successful processing
+				$ticked = true;
 			} catch ( Exception $e ) {
 				WP_CLI::warning( sprintf( 'Failed processing product %s (Rest ID: %s). Error: %s', $shopify_product->handle, $rest_id, $e->getMessage() ) );
+				// Don't tick if processing failed - let the loop continue and potentially retry or skip
 			}
 		}
 
 		$product_duration = microtime( true ) - $product_start_time;
-		WP_CLI::line( sprintf( 'Product %s (Rest ID: %s) processed in %.2f seconds.', $shopify_product->handle, $rest_id, $product_duration ) );
+		WP_CLI::line( sprintf( 'Product %s (Rest ID: %s) finished in %.2f seconds.', $shopify_product->handle, $rest_id, $product_duration ) );
+
 
 		return array( 'processed' => $processed );
 	}
@@ -906,6 +925,37 @@ class Migrator_CLI_Products {
 					WP_CLI::line( 'Removed orphan variation ID: ' . $orphan_id );
 				}
 			}
+		}
+	}
+
+	/**
+	 * Fetches an estimated total product count from Shopify REST API.
+	 *
+	 * Note: This is an estimate as the count endpoint doesn't support all filters (e.g., handle, product_type).
+	 * If --limit or --ids are provided, those are used instead for a more accurate progress bar.
+	 *
+	 * @param object $args Parsed command arguments.
+	 * @return int|null Estimated total count, or null if count couldn't be determined.
+	 */
+	private function fetch_estimated_total_count( $args ) {
+		$count_params = array();
+		// Extract supported filters from the query_filter string (or pass original args)
+		// Example: assuming $args object holds original values if needed
+		if ( isset( $this->assoc_args['status'] ) ) {
+			$count_params['status'] = $this->assoc_args['status']; // REST uses lowercase
+		}
+
+		WP_CLI::line( 'Fetching estimated total product count from REST API...' );
+		$response = Migrator_CLI_Utils::rest_request( 'products/count.json', $count_params );
+
+		if ( $response && isset( $response->data->count ) ) {
+			$count = (int) $response->data->count;
+			WP_CLI::line( sprintf( 'Estimated total products matching filters (status, created_at): %d', $count ) );
+
+			return $count;
+		} else {
+			WP_CLI::warning( 'Could not fetch estimated total product count. Progress bar may not show percentage.' );
+			return null; // Indicate unknown count
 		}
 	}
 }
