@@ -117,7 +117,7 @@ class Migrator_CLI_Products {
 		}
 
 		// Fetch estimated count for progress bar
-		$total_count = $this->fetch( $args );
+		$total_count = $this->fetch_total_product_count( $args );
 		$progress = \WP_CLI\Utils\make_progress_bar( 'Importing Products', $total_count );
 
 		$overall_start_time = microtime( true );
@@ -1185,8 +1185,8 @@ class Migrator_CLI_Products {
 	 */
 	private function fetch_total_product_count( $args ) {
 		$count_params = array();
-		if ( isset( $this->assoc_args['status'] ) ) {
-			$count_params['status'] = $this->assoc_args['status'];
+		if ( isset( $args->status ) ) {
+			$count_params['status'] = $args->status;
 		}
 
 		WP_CLI::line( 'Fetching total product count from Shopify...' );
