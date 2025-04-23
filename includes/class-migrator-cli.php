@@ -83,6 +83,9 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * [--remove-orphans]
 	 * : Remove orphans order items
 	 *
+	 * [--verbose]
+	 * : Show verbose output of performance and product info
+	 *
 	 * Example:
 	 * wp migrator products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU_*"
 	 *

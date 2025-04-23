@@ -99,6 +99,8 @@ class Migrator_CLI_Products {
 	private $assoc_args;
 	private $saved_filters; // Added for disable/restore hooks
 
+	private $verbose;
+
 	/**
 	 * Main entry point for migrating products.
 	 *
@@ -158,8 +160,11 @@ class Migrator_CLI_Products {
 			$after_cursor = $batch_result['last_cursor']; // Update cursor from batch processing
 			$has_next_page = $response_data->pageInfo->hasNextPage;
 
-			WP_CLI::line( sprintf( 'Batch processed %d products in %.2f seconds.', $batch_processed_count, microtime( true ) - $batch_start_time ) );
-			WP_CLI::line( ''); // Add a newline for readability
+			// only print if verbose is on
+			if ( $this->verbose ) {
+				WP_CLI::line( sprintf( 'Batch processed %d products in %.2f seconds.', $batch_processed_count, microtime( true ) - $batch_start_time ) );
+				WP_CLI::line( ''); // Add a newline for readability
+			}
 
 			// Clear cache if continuing
 			if ( $has_next_page && $limit_remaining > 0 ) {
@@ -198,12 +203,13 @@ class Migrator_CLI_Products {
 
 		// Parse other arguments
 		$args = new stdClass();
-		$args->limit        = isset( $assoc_args['limit'] ) ? (int) $assoc_args['limit'] : PHP_INT_MAX;
-		$args->perpage      = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 250 ) : 250;
-		$args->no_update    = isset( $assoc_args['no-update'] );
-		$args->exclude_ids  = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
-		$args->after_cursor = isset( $assoc_args['next' ] ) ? $assoc_args['next'] : null;
+		$args->limit           = isset( $assoc_args['limit'] ) ? (int) $assoc_args['limit'] : PHP_INT_MAX;
+		$args->perpage         = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 250 ) : 250;
+		$args->no_update       = isset( $assoc_args['no-update'] );
+		$args->exclude_ids     = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
+		$args->after_cursor    = isset( $assoc_args['next' ] ) ? $assoc_args['next'] : null;
 		$args->target_rest_ids = isset( $assoc_args['ids'] ) ? explode(',', $assoc_args['ids']) : null;
+		$this->verbose 		   = isset( $assoc_args['verbose'] );
 
 		// Build GraphQL query filter string
 		$query_parts = array();
@@ -313,12 +319,16 @@ class Migrator_CLI_Products {
 		$processed = false;
 		$ticked = false; // Track if progress was ticked for this product
 
-		WP_CLI::line( sprintf( 'Processing product %s (Rest ID: %s)...', $shopify_product->handle, $rest_id ) );
+		if ( $this->verbose ) {
+			WP_CLI::line( sprintf( 'Processing product %s (Rest ID: %s)...', $shopify_product->handle, $rest_id ) );
+		}
 		$product_start_time = microtime( true );
 
 		// Handle --ids filter
 		if ( isset( $args->target_rest_ids ) && ! in_array( $rest_id, $args->target_rest_ids ) ) {
-			WP_CLI::line( sprintf( 'Skipping product %s (Rest ID: %s) - Not in target IDs.', $shopify_product->handle, $rest_id ) );
+			if ( $this->verbose ) {
+				WP_CLI::line( sprintf( 'Skipping product %s (Rest ID: %s) - Not in target IDs.', $shopify_product->handle, $rest_id ) );
+			}
 			$progress->tick(); // Tick even if skipped when filtering by ID
 			$ticked = true;
 			return array( 'processed' => false );
@@ -326,7 +336,9 @@ class Migrator_CLI_Products {
 
 		// Handle --exclude filter
 		if ( in_array( $rest_id, $args->exclude_ids ) ) {
-			WP_CLI::line( sprintf( 'Skipping product %s (Rest ID: %s) - Excluded.', $shopify_product->handle, $rest_id ) );
+			if ( $this->verbose ) {
+				WP_CLI::line( sprintf( 'Skipping product %s (Rest ID: %s) - Excluded.', $shopify_product->handle, $rest_id ) );
+			}
 			// Don't tick for excludes as they aren't part of the estimated total
 			return array( 'processed' => false );
 		}
@@ -335,7 +347,9 @@ class Migrator_CLI_Products {
 		$woo_product = $this->get_corresponding_woo_product( $shopify_product );
 
 		if ( $woo_product && $args->no_update ) {
-			WP_CLI::line( sprintf( 'Skipping product %s (ID: %s) - Product already exists and --no-update flag is set.', $shopify_product->handle, $woo_product->get_id() ) );
+			if ( $this->verbose ) {
+				WP_CLI::line( sprintf( 'Skipping product %s (ID: %s) - Product already exists and --no-update flag is set.', $shopify_product->handle, $woo_product->get_id() ) );
+			}
 			$progress->tick(); // Tick for existing products if not updating
 			$ticked = true;
 		} else {
@@ -352,7 +366,9 @@ class Migrator_CLI_Products {
 		}
 
 		$product_duration = microtime( true ) - $product_start_time;
-		WP_CLI::line( sprintf( 'Product %s (Rest ID: %s) finished in %.2f seconds.', $shopify_product->handle, $rest_id, $product_duration ) );
+		if ( $this->verbose ) {
+			WP_CLI::line( sprintf( 'Product %s (Rest ID: %s) finished in %.2f seconds.', $shopify_product->handle, $rest_id, $product_duration ) );
+		}
 
 
 		return array( 'processed' => $processed );
@@ -605,7 +621,9 @@ class Migrator_CLI_Products {
 		$product->update_meta_data( '_original_product_id', $rest_id );
 
 		$product->save();
-		WP_CLI::line( 'Woo Product ID: ' . $product->get_id() );
+		if ( $this->verbose ) {
+			WP_CLI::line( 'Woo Product ID: ' . $product->get_id() );
+		}
 	}
 
 	private function should_process( $field ) {
@@ -710,7 +728,9 @@ class Migrator_CLI_Products {
 
 	private function upload_images( $shopify_product, $product ) {
 		if ( ! property_exists( $shopify_product, 'images' ) || empty( $shopify_product->images->edges ) ) return;
-		WP_CLI::line( 'Starting image processing...' );
+		if ( $this->verbose ) {
+			WP_CLI::line( 'Starting image processing...' );
+		}
 		if ( empty( $this->migration_data['images_mapping'] ) ) $this->migration_data['images_mapping'] = array();
 		foreach ( $shopify_product->images->edges as $image_edge ) {
 			$image_node = $image_edge->node;
@@ -718,17 +738,23 @@ class Migrator_CLI_Products {
 			if ( isset( $this->migration_data['images_mapping'][ $image_gql_id ] ) && wp_attachment_is_image( $this->migration_data['images_mapping'][ $image_gql_id ] ) ) continue;
 			$memory_before = round( memory_get_usage() / 1024 / 1024, 2 );
 			$memory_limit = ini_get('memory_limit');
-			WP_CLI::line( sprintf( '- Uploading image %s from %s... (Memory Usage: %s MB / Limit: %s)', $image_gql_id, $image_node->url, $memory_before, $memory_limit ) );
+			if ( $this->verbose ) {
+				WP_CLI::line( sprintf( '- Uploading image %s from %s... (Memory Usage: %s MB / Limit: %s)', $image_gql_id, $image_node->url, $memory_before, $memory_limit ) );
+			}
 			$upload_start_time = microtime(true);
 			$image_id = media_sideload_image( $image_node->url, $product->get_id(), $image_node->altText, 'id' );
 			$upload_duration = microtime(true) - $upload_start_time;
 			$memory_after = round( memory_get_usage() / 1024 / 1024, 2 );
+
 			if ( is_wp_error( $image_id ) ) {
 				WP_CLI::warning( sprintf( ' - Error uploading %s: %s (Duration: %.2f seconds, Memory after: %s MB)', $image_node->url, $image_id->get_error_message(), $upload_duration, $memory_after ) );
 				continue;
 			}
 			$this->migration_data['images_mapping'][ $image_gql_id ] = $image_id;
-			WP_CLI::line( sprintf( ' - Mapped image %s to attachment ID %s. (Upload took %.2f seconds, Memory after: %s MB)', $image_gql_id, $image_id, $upload_duration, $memory_after ) );
+
+			if ( $this->verbose ) {
+				WP_CLI::line( sprintf( ' - Mapped image %s to attachment ID %s. (Upload took %.2f seconds, Memory after: %s MB)', $image_gql_id, $image_id, $upload_duration, $memory_after ) );
+			}
 		}
 		$product->update_meta_data( '_migration_data', $this->migration_data );
 	}
