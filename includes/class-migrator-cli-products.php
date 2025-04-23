@@ -140,7 +140,7 @@ class Migrator_CLI_Products {
 					'query_filter' => $args->query_filter,
 				)
 			);
-			$response_data = $this->fetch_product_batch( $fetch_args );
+			$response_data = $this->fetch_product_batch( $fetch_args, $total_count );
 
 			if ( ! $response_data || empty( $response_data->products ) ) {
 				WP_CLI::line( 'No more products found or failed to fetch batch.' );
@@ -244,10 +244,11 @@ class Migrator_CLI_Products {
 	 * Fetches a batch of products from the Shopify GraphQL API.
 	 *
 	 * @param object $fetch_args Arguments for fetching (limit, after_cursor, query_filter).
+	 * @param int $total_count The total number of products to fetch.
 	 * @return object|false Response data object or false on failure.
 	 */
-	private function fetch_product_batch( $fetch_args ) {
-		WP_CLI::line( sprintf( 'Fetching next %d products...', $fetch_args->limit ) );
+	private function fetch_product_batch( $fetch_args, $total_count ) {
+		WP_CLI::line( sprintf( 'Fetching next %d products...', min( $fetch_args->limit, $total_count ) ) );
 
 		$variables = array(
 			'first' => $fetch_args->limit,
