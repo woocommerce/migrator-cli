@@ -246,10 +246,7 @@ class Migrator_CLI_Products {
 	 * @return object|false Response data object or false on failure.
 	 */
 	private function fetch_product_batch( $fetch_args ) {
-		WP_CLI::line( sprintf( 'Fetching next %d products%s...',
-			$fetch_args->limit,
-			$fetch_args->after_cursor ? ' after cursor ' . $fetch_args->after_cursor : ''
-		));
+		WP_CLI::line( sprintf( 'Fetching next %d products...', $fetch_args->limit ) );
 
 		$variables = array(
 			'first' => $fetch_args->limit,
@@ -264,7 +261,7 @@ class Migrator_CLI_Products {
 			return false;
 		}
 
-		WP_CLI::line( sprintf( 'Fetched %d products.', count( $response_data->products->edges ) ) );
+		WP_CLI::line( sprintf( 'Successfully fetched %d products.', count( $response_data->products->edges ) ) );
 		return (
 			(object) array(
 				'products' => $response_data->products->edges,
@@ -971,12 +968,12 @@ class Migrator_CLI_Products {
 			$count_params['status'] = $this->assoc_args['status']; // REST uses lowercase
 		}
 
-		WP_CLI::line( 'Fetching estimated total product count from REST API...' );
+		WP_CLI::line( 'Fetching total product count from Shopify...' );
 		$response = Migrator_CLI_Utils::rest_request( 'products/count.json', $count_params );
 
 		if ( $response && isset( $response->data->count ) ) {
 			$count = (int) $response->data->count;
-			WP_CLI::line( sprintf( 'Estimated total products matching filters (status, created_at): %d', $count ) );
+			WP_CLI::line( sprintf( 'Total products fetched from Shopify: %d', $count ) );
 
 			return $count;
 		} else {
