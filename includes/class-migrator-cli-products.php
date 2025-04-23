@@ -973,7 +973,7 @@ class Migrator_CLI_Products {
 
 		if ( $response && isset( $response->data->count ) ) {
 			$count = (int) $response->data->count;
-			WP_CLI::line( sprintf( 'Total products fetched from Shopify: %d', $count ) );
+			WP_CLI::line( sprintf( 'Total products found on Shopify: %d', $count ) );
 
 			return $count;
 		} else {
