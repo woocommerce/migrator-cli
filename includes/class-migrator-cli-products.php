@@ -104,7 +104,7 @@ class Migrator_CLI_Products {
 	/**
 	 * Main entry point for migrating products.
 	 *
-	 * @param array $assoc_args Command-line arguments.
+	 * @param array $assoc_args Command-line arguments ['before'] ['after'] ['limit'] ['perpage'] ['next'] ['status'] ['ids'] ['exclude'] ['handle'] ['product-type'] ['no-update'] ['verbose']
 	 */
 	public function migrate_products( $assoc_args ) {
 		Migrator_CLI_Utils::health_check();
@@ -117,7 +117,7 @@ class Migrator_CLI_Products {
 		}
 
 		// Fetch estimated count for progress bar
-		$total_count = $this->fetch_estimated_total_count( $args );
+		$total_count = $this->fetch( $args );
 		$progress = \WP_CLI\Utils\make_progress_bar( 'Importing Products', $total_count );
 
 		$overall_start_time = microtime( true );
@@ -477,13 +477,13 @@ class Migrator_CLI_Products {
 	}
 
 	private function get_corresponding_woo_product( $shopify_product ) {
-		$rest_id = basename( $shopify_product->id );
+		$shopify_product_id = basename( $shopify_product->id );
 
 		$woo_products = wc_get_products(
 			array(
 				'limit'      => 1,
 				'meta_key'   => '_original_product_id',
-				'meta_value' => $rest_id,
+				'meta_value' => $shopify_product_id,
 			)
 		);
 
@@ -493,10 +493,10 @@ class Migrator_CLI_Products {
 	}
 
 	private function create_or_update_woo_product( $shopify_product, $woo_product = null ) {
-		$rest_id = basename( $shopify_product->id );
+		$shopify_product_id = basename( $shopify_product->id );
 
 		$this->migration_data = array(
-			'product_id'         => $rest_id,
+			'product_id'         => $shopify_product_id,
 			'original_url'       => '',
 			'images_mapping'     => array(),
 			'metafields'         => array(),
@@ -615,7 +615,7 @@ class Migrator_CLI_Products {
 		}
 
 		$product->update_meta_data( '_migration_data', $this->migration_data );
-		$product->update_meta_data( '_original_product_id', $rest_id );
+		$product->update_meta_data( '_original_product_id', $shopify_product_id );
 
 		$product->save();
 		if ( $this->verbose ) {
@@ -671,73 +671,144 @@ class Migrator_CLI_Products {
 	}
 
 	private function get_woo_product_tag_ids( $shopify_product ) {
-		$tag_ids = array();
-		if ( empty( $shopify_product->tags ) ) return $tag_ids;
-		$tags = $shopify_product->tags;
-		foreach ( $tags as $tag ) {
+		$tag_ids = [];
+		if ( empty( $shopify_product->tags ) ) {
+			return $tag_ids;
+		}
+
+		foreach ( $shopify_product->tags as $tag ) {
 			$trimmed_tag = trim( $tag );
-			if ( empty( $trimmed_tag ) ) continue;
+			if ( empty( $trimmed_tag ) ) {
+				continue;
+			}
+
 			$woo_product_tag = get_term_by( 'name', $trimmed_tag, 'product_tag', ARRAY_A );
 			if ( ! $woo_product_tag ) {
 				$tag_slug = sanitize_title( $trimmed_tag );
 				$woo_product_tag = wp_insert_term(
 					$trimmed_tag,
 					'product_tag',
-					array( 'slug' => $tag_slug )
+					[ 'slug' => $tag_slug ]
 				);
-				if ( is_wp_error( $woo_product_tag ) ) continue;
+
+				if ( is_wp_error( $woo_product_tag ) ) {
+					continue;
+				}
 			}
+
 			$tag_ids[] = $woo_product_tag['term_id'];
 		}
+
 		return $tag_ids;
 	}
 
 	private function get_converted_weight( $weight, $weight_unit ) {
-		if ( null === $weight || null === $weight_unit ) return 0.0;
+		if ( null === $weight || null === $weight_unit ) {
+			return 0.0;
+		}
+
 		$unit_map = array(
-			'GRAMS' => 'g', 'KILOGRAMS' => 'kg', 'POUNDS' => 'lb', 'OUNCES' => 'oz',
+			'GRAMS'    => 'g',
+			'KILOGRAMS' => 'kg',
+			'POUNDS'    => 'lb',
+			'OUNCES'    => 'oz',
 		);
+
 		$shopify_unit_key = isset( $unit_map[ $weight_unit ] ) ? $unit_map[ $weight_unit ] : null;
-		if ( ! $shopify_unit_key ) return $weight;
+
+		if ( ! $shopify_unit_key ) {
+			return $weight;
+		}
+
 		$store_weight_unit = get_option( 'woocommerce_weight_unit' );
-		if ( 'lbs' === $store_weight_unit ) $store_weight_unit = 'lb';
+
+		if ( 'lbs' === $store_weight_unit ) {
+			$store_weight_unit = 'lb';
+		}
+
 		$conversion = array(
-			'kg' => array( 'kg' => 1, 'g' => 1000, 'lb' => 2.20462, 'oz' => 35.274 ),
-			'g'  => array( 'kg' => 0.001, 'g' => 1, 'lb' => 0.00220462, 'oz' => 0.035274 ),
-			'lb' => array( 'kg' => 0.453592, 'g' => 453.592, 'lb' => 1, 'oz' => 16 ),
-			'oz' => array( 'kg' => 0.0283495, 'g' => 28.3495, 'lb' => 0.0625, 'oz' => 1 ),
+			'kg' => array(
+				'kg' => 1,
+				'g'  => 1000,
+				'lb' => 2.20462,
+				'oz' => 35.274,
+			),
+			'g'  => array(
+				'kg' => 0.001,
+				'g'  => 1,
+				'lb' => 0.00220462,
+				'oz' => 0.035274,
+			),
+			'lb' => array(
+				'kg' => 0.453592,
+				'g'  => 453.592,
+				'lb' => 1,
+				'oz' => 16,
+			),
+			'oz' => array(
+				'kg' => 0.0283495,
+				'g'  => 28.3495,
+				'lb' => 0.0625,
+				'oz' => 1,
+			),
 		);
-		if ( ! isset( $conversion[ $shopify_unit_key ][ $store_weight_unit ] ) ) return $weight;
+
+		if ( ! isset( $conversion[ $shopify_unit_key ][ $store_weight_unit ] ) ) {
+			return $weight;
+		}
+
 		return (float) $weight * $conversion[ $shopify_unit_key ][ $store_weight_unit ];
 	}
 
 	private function set_woo_product_brand( $shopify_product, $product ) {
-		if ( ! taxonomy_exists( 'product_brand' ) ) return;
+		if ( ! taxonomy_exists( 'product_brand' ) ) {
+			return;
+		}
+
 		$brand = $shopify_product->vendor;
-		if ( ! $brand ) return;
+		if ( empty( $brand ) ) {
+			return;
+		}
+
 		$woo_product_brand = get_term_by( 'name', $brand, 'product_brand', ARRAY_A );
 		if ( ! $woo_product_brand ) {
 			$woo_product_brand = wp_insert_term( $brand, 'product_brand' );
-			if ( is_wp_error( $woo_product_brand ) ) return;
+			if ( is_wp_error( $woo_product_brand ) ) {
+				return;
+			}
 		}
+
 		wp_set_object_terms( $product->get_id(), $woo_product_brand['term_id'], 'product_brand' );
 	}
 
 	private function upload_images( $shopify_product, $product ) {
-		if ( ! property_exists( $shopify_product, 'images' ) || empty( $shopify_product->images->edges ) ) return;
+		if ( ! property_exists( $shopify_product, 'images' ) || empty( $shopify_product->images->edges ) ) {
+			return;
+		}
+
 		if ( $this->verbose ) {
 			WP_CLI::line( 'Starting image processing...' );
 		}
-		if ( empty( $this->migration_data['images_mapping'] ) ) $this->migration_data['images_mapping'] = array();
+
+		if ( empty( $this->migration_data['images_mapping'] ) ) {
+			$this->migration_data['images_mapping'] = array();
+		}
+
 		foreach ( $shopify_product->images->edges as $image_edge ) {
 			$image_node = $image_edge->node;
 			$image_gql_id = $image_node->id;
-			if ( isset( $this->migration_data['images_mapping'][ $image_gql_id ] ) && wp_attachment_is_image( $this->migration_data['images_mapping'][ $image_gql_id ] ) ) continue;
+
+			if ( isset( $this->migration_data['images_mapping'][ $image_gql_id ] ) && wp_attachment_is_image( $this->migration_data['images_mapping'][ $image_gql_id ] ) ) {
+				continue;
+			}
+
 			$memory_before = round( memory_get_usage() / 1024 / 1024, 2 );
 			$memory_limit = ini_get('memory_limit');
+
 			if ( $this->verbose ) {
 				WP_CLI::line( sprintf( '- Uploading image %s from %s... (Memory Usage: %s MB / Limit: %s)', $image_gql_id, $image_node->url, $memory_before, $memory_limit ) );
 			}
+
 			$upload_start_time = microtime(true);
 			$image_id = media_sideload_image( $image_node->url, $product->get_id(), $image_node->altText, 'id' );
 			$upload_duration = microtime(true) - $upload_start_time;
@@ -747,31 +818,43 @@ class Migrator_CLI_Products {
 				WP_CLI::warning( sprintf( ' - Error uploading %s: %s (Duration: %.2f seconds, Memory after: %s MB)', $image_node->url, $image_id->get_error_message(), $upload_duration, $memory_after ) );
 				continue;
 			}
+
 			$this->migration_data['images_mapping'][ $image_gql_id ] = $image_id;
 
 			if ( $this->verbose ) {
 				WP_CLI::line( sprintf( ' - Mapped image %s to attachment ID %s. (Upload took %.2f seconds, Memory after: %s MB)', $image_gql_id, $image_id, $upload_duration, $memory_after ) );
 			}
 		}
+
 		$product->update_meta_data( '_migration_data', $this->migration_data );
 	}
 
 	private function get_woo_product_image_id( $shopify_product ) {
-		if ( empty( $shopify_product->featuredImage ) || empty( $this->migration_data['images_mapping'] ) ) return 0;
+		if ( empty( $shopify_product->featuredImage ) || empty( $this->migration_data['images_mapping'] ) ) {
+			return 0;
+		}
+
 		$featured_image_gql_id = $shopify_product->featuredImage->id;
+
 		return isset( $this->migration_data['images_mapping'][ $featured_image_gql_id ] ) ? $this->migration_data['images_mapping'][ $featured_image_gql_id ] : 0;
 	}
 
 	private function get_woo_product_gallery_image_ids( $shopify_product ) {
-		$gallery_ids = array();
+		$gallery_ids = [];
 		$featured_image_wp_id = $this->get_woo_product_image_id( $shopify_product );
-		if ( empty( $this->migration_data['images_mapping'] ) ) return $gallery_ids;
+
+		if ( empty( $this->migration_data['images_mapping'] ) ) {
+			return $gallery_ids;
+		}
+
 		$all_wp_image_ids = array_values( $this->migration_data['images_mapping'] );
+
 		if ( $featured_image_wp_id ) {
-			$gallery_ids = array_diff( $all_wp_image_ids, array( $featured_image_wp_id ) );
+			$gallery_ids = array_diff( $all_wp_image_ids, [ $featured_image_wp_id ] );
 		} else {
 			$gallery_ids = $all_wp_image_ids;
 		}
+
 		return array_values( $gallery_ids );
 	}
 
@@ -784,7 +867,9 @@ class Migrator_CLI_Products {
 				$taxonomy_name = 'pa_' . $taxonomy_slug;
 				if ( ! taxonomy_exists( $taxonomy_name ) ) {
 					$attribute_id = wc_create_attribute( array( 'name' => $option->name, 'slug' => $taxonomy_slug, 'type' => 'select', 'order_by' => 'menu_order' ) );
-					if ( is_wp_error( $attribute_id ) ) continue;
+					if ( is_wp_error( $attribute_id ) ) {
+						continue;
+					}
 				} else {
 					$attribute_id = wc_attribute_taxonomy_id_by_name( $taxonomy_name );
 				}
@@ -795,7 +880,9 @@ class Migrator_CLI_Products {
 					$term = get_term_by( 'slug', $term_slug, $taxonomy_name, ARRAY_A );
 					if ( ! $term ) {
 						$term_result = wp_insert_term( $value, $taxonomy_name, array( 'slug' => $term_slug ) );
-						if ( is_wp_error( $term_result ) ) continue;
+						if ( is_wp_error( $term_result ) ) {
+							continue;
+						}
 						$term_ids[] = $term_result['term_id'];
 					} else {
 						$term_ids[] = $term['term_id'];
@@ -816,9 +903,13 @@ class Migrator_CLI_Products {
 			$product->save();
 		}
 
-		if ( ! property_exists( $shopify_product, 'variants' ) || empty( $shopify_product->variants->edges ) ) return;
+		if ( ! property_exists( $shopify_product, 'variants' ) || empty( $shopify_product->variants->edges ) ) {
+			return;
+		}
 
-		if ( empty( $this->migration_data['variations_mapping'] ) ) $this->migration_data['variations_mapping'] = array();
+		if ( empty( $this->migration_data['variations_mapping'] ) ) {
+			$this->migration_data['variations_mapping'] = array();
+		}
 		$processed_variation_ids = array();
 
 		foreach ( $shopify_product->variants->edges as $variant_edge ) {
@@ -829,7 +920,9 @@ class Migrator_CLI_Products {
 
 			if ( isset( $this->migration_data['variations_mapping'][ $variant_gql_id ] ) ) {
 				$_variation = wc_get_product( $this->migration_data['variations_mapping'][ $variant_gql_id ] );
-				if ( is_a( $_variation, 'WC_Product_Variation' ) ) $variation = $_variation;
+				if ( is_a( $_variation, 'WC_Product_Variation' ) ) {
+					$variation = $_variation;
+				}
 			} else {
 				$found_variations = get_posts( array( 'post_parent' => $product->get_id(), 'post_type' => 'product_variation', 'numberposts' => 1, 'meta_key' => '_original_variant_id', 'meta_value' => $variant_rest_id ) );
 				if ( ! empty( $found_variations ) ) {
@@ -838,7 +931,9 @@ class Migrator_CLI_Products {
 				}
 			}
 
-			if ( ! $variation ) $variation = new WC_Product_Variation();
+			if ( ! $variation ) {
+				$variation = new WC_Product_Variation();
+			}
 
 			$variation->set_parent_id( $product->get_id() );
 			$variation->set_menu_order( $variant_node->position );
@@ -919,7 +1014,9 @@ class Migrator_CLI_Products {
 	}
 
 	private function update_seo_title_description( $shopify_product, WC_Product $product ) {
-		if ( ! defined( 'WPSEO_VERSION' ) ) return;
+		if ( ! defined( 'WPSEO_VERSION' ) ) {
+			return;
+		}
 		$current_seo_title = $product->get_meta( '_yoast_wpseo_title' );
 		$current_seo_description = $product->get_meta( '_yoast_wpseo_metadesc' );
 		$title = $product->get_name();
@@ -927,16 +1024,26 @@ class Migrator_CLI_Products {
 		if ( property_exists( $shopify_product, 'metafields' ) && ! empty( $shopify_product->metafields->edges ) ) {
 			foreach ( $shopify_product->metafields->edges as $edge ) {
 				$field_node = $edge->node;
-				if ( 'global' === $field_node->namespace && 'title_tag' === $field_node->key && ! empty( $field_node->value ) ) $title = $field_node->value;
-				if ( 'global' === $field_node->namespace && 'description_tag' === $field_node->key && ! empty( $field_node->value ) ) $description = $field_node->value;
+				if ( 'global' === $field_node->namespace && 'title_tag' === $field_node->key && ! empty( $field_node->value ) ) {
+					$title = $field_node->value;
+				}
+				if ( 'global' === $field_node->namespace && 'description_tag' === $field_node->key && ! empty( $field_node->value ) ) {
+					$description = $field_node->value;
+				}
 			}
 		}
-		if ( $current_seo_title !== $title ) $product->update_meta_data( '_yoast_wpseo_title', $title );
-		if ( $current_seo_description !== $description ) $product->update_meta_data( '_yoast_wpseo_metadesc', $description );
+		if ( $current_seo_title !== $title ) {
+			$product->update_meta_data( '_yoast_wpseo_title', $title );
+		}
+		if ( $current_seo_description !== $description ) {
+			$product->update_meta_data( '_yoast_wpseo_metadesc', $description );
+		}
 	}
 
 	private function clean_up_orphan_variations( $product, $processed_variation_ids ) {
-		if ( ! isset( $this->assoc_args['remove-orphans'] ) ) return;
+		if ( ! isset( $this->assoc_args['remove-orphans'] ) ) {
+			return;
+		}
 		$existing_variations = $product->get_children();
 		$orphans = array_diff( $existing_variations, $processed_variation_ids );
 		if ( ! empty( $orphans ) ) {
@@ -952,20 +1059,18 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Fetches an estimated total product count from Shopify REST API.
+	 * Fetches total product count from Shopify REST API.
 	 *
 	 * Note: This is an estimate as the count endpoint doesn't support all filters (e.g., handle, product_type).
 	 * If --limit or --ids are provided, those are used instead for a more accurate progress bar.
 	 *
 	 * @param object $args Parsed command arguments.
-	 * @return int|null Estimated total count, or null if count couldn't be determined.
+	 * @return int|null Total product count, or null if count couldn't be determined.
 	 */
-	private function fetch_estimated_total_count( $args ) {
+	private function fetch_total_product_count( $args ) {
 		$count_params = array();
-		// Extract supported filters from the query_filter string (or pass original args)
-		// Example: assuming $args object holds original values if needed
 		if ( isset( $this->assoc_args['status'] ) ) {
-			$count_params['status'] = $this->assoc_args['status']; // REST uses lowercase
+			$count_params['status'] = $this->assoc_args['status'];
 		}
 
 		WP_CLI::line( 'Fetching total product count from Shopify...' );
