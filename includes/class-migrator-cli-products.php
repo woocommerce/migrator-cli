@@ -195,6 +195,7 @@ class Migrator_CLI_Products {
 		} else {
 			$this->fields = $this->get_product_fields();
 		}
+
 		if ( isset( $assoc_args['exclude-fields'] ) ) {
 			$exclude_fields = explode( ',', $assoc_args['exclude-fields'] );
 			$this->fields   = array_diff( $this->fields, $exclude_fields );
@@ -614,6 +615,7 @@ class Migrator_CLI_Products {
 			$product->set_sku( '' );
 		}
 
+		// The operations below require product id, so we need to save the product first.
 		$product->save();
 
 		if ( $this->should_process( 'brand' ) ) {
@@ -636,6 +638,7 @@ class Migrator_CLI_Products {
 			$this->update_seo_title_description( $shopify_product, $product );
 		}
 
+		// Migrate metafields.
 		if ( property_exists( $shopify_product, 'metafields' ) && ! empty( $shopify_product->metafields->edges ) ) {
 			foreach ( $shopify_product->metafields->edges as $edge ) {
 				$field_node = $edge->node;
@@ -664,10 +667,10 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Sanitizes the product description.
+	 * Sanitizes the product description html.
 	 *
-	 * @param string $html the HTML content.
-	 * @return string the sanitized HTML content.
+	 * @param string $html the product description html.
+	 * @return string the sanitized description.
 	 */
 	private function sanitize_product_description( $html ) {
 		$html = htmlspecialchars_decode(htmlspecialchars($html, ENT_QUOTES, 'UTF-8', false), ENT_QUOTES);
@@ -693,34 +696,42 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Gets the Woo product category IDs.
+	 * Gets the Woo product category ids that match the collection handle in
+	 * $shopify_product->collections->edges[collection]->node->handle
 	 *
 	 * @param object $shopify_product the Shopify product data.
 	 * @return array the Woo product category IDs.
 	 */
 	private function get_woo_product_category_ids( $shopify_product ) {
-		$category_ids = array();
+		$category_ids = [];
 		if ( ! property_exists( $shopify_product, 'collections' ) || empty( $shopify_product->collections->edges ) ) {
 			$category_ids[] = get_option( 'default_product_cat' );
 			return $category_ids;
 		}
-		$collections  = $shopify_product->collections->edges;
-		foreach ( $collections as $collection_edge ) {
+
+		foreach ( $shopify_product->collections->edges as $collection_edge ) {
 			$collection_node = $collection_edge->node;
 			$woo_product_category = get_term_by( 'slug', $collection_node->handle, 'product_cat', ARRAY_A );
+
 			if ( ! $woo_product_category ) {
 				$woo_product_category = wp_insert_term(
 					$collection_node->title,
 					'product_cat',
-					array( 'slug' => $collection_node->handle )
+					[ 'slug' => $collection_node->handle ]
 				);
-				if ( is_wp_error( $woo_product_category ) ) continue;
+
+				if ( is_wp_error( $woo_product_category ) ) {
+					continue;
+				}
 			}
+
 			$category_ids[] = $woo_product_category['term_id'];
 		}
+
 		if ( empty( $category_ids ) ) {
 			$category_ids[] = get_option( 'default_product_cat' );
 		}
+
 		return $category_ids;
 	}
 
