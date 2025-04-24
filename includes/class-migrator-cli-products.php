@@ -104,7 +104,7 @@ class Migrator_CLI_Products {
 	/**
 	 * Main entry point for migrating products.
 	 *
-	 * @param array $assoc_args Command-line arguments ['before'] ['after'] ['limit'] ['perpage'] ['next'] ['status'] ['ids'] ['exclude'] ['handle'] ['product-type'] ['no-update'] ['verbose']
+	 * @param array $assoc_args Command-line arguments ['before'] ['after'] ['limit'] ['perpage'] ['next'] ['status'] ['ids'] ['exclude'] ['handle'] ['product-type'] ['skip-update'] ['verbose']
 	 */
 	public function migrate_products( $assoc_args ) {
 		Migrator_CLI_Utils::health_check();
@@ -206,7 +206,7 @@ class Migrator_CLI_Products {
 		$args = new stdClass();
 		$args->limit           = isset( $assoc_args['limit'] ) ? (int) $assoc_args['limit'] : PHP_INT_MAX;
 		$args->perpage         = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 250 ) : 250;
-		$args->no_update       = isset( $assoc_args['no-update'] );
+		$args->skip_update     = isset( $assoc_args['skip-update'] );
 		$args->exclude_ids     = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
 		$args->after_cursor    = isset( $assoc_args['next' ] ) ? $assoc_args['next'] : null;
 		$args->target_rest_ids = isset( $assoc_args['ids'] ) ? explode(',', $assoc_args['ids']) : null;
@@ -345,9 +345,9 @@ class Migrator_CLI_Products {
 		// Check if product exists
 		$woo_product = $this->get_corresponding_woo_product( $shopify_product );
 
-		if ( $woo_product && $args->no_update ) {
+		if ( $woo_product && $args->skip_update ) {
 			if ( $this->verbose ) {
-				WP_CLI::line( sprintf( 'Skipping product %s (ID: %s) - Product already exists and --no-update flag is set.', $shopify_product->handle, $woo_product->get_id() ) );
+				WP_CLI::line( sprintf( 'Skipping product %s (ID: %s) - Product already exists and --skip-update flag is set.', $shopify_product->handle, $woo_product->get_id() ) );
 			}
 			$progress->tick(); // Tick for existing products if not updating
 			$ticked = true;

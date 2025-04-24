@@ -16,7 +16,7 @@
 ## Commands
 
 ```
-  wp migrator products [--dry-run] [--before] [--after] [--limit] [--perpage] [--next] [--status] [--ids] [--exclude] [--handle] [--product-type] [--no-update] [--fields] [--exclude-fields] [--remove-orphans]
+  wp migrator products [--before] [--after] [--limit] [--perpage] [--next] [--status] [--ids] [--exclude] [--handle] [--product-type] [--skip-update] [--fields] [--exclude-fields] [--remove-orphans] [--verbose]
 
   OPTIONS
 
@@ -50,7 +50,7 @@
   [--product-type]
     single or variable or all.
 
-  [--no-update]
+  [--skip-update]
     Force create new products instead of updating existing one base on the handle.
 
   [--fields]
@@ -61,6 +61,9 @@
 
   [--remove-orphans]
     Remove orphans order items
+
+  [--verbose]
+    Enable verbose output during migration.
 
   Example:
   wp migrator products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU_*"

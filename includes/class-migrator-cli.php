@@ -71,7 +71,7 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * [--product-type]
 	 * : single or variable or all.
 	 *
-	 * [--no-update]
+	 * [--skip-update]
 	 * : Force create new products instead of updating existing one base on the handle.
 	 *
 	 * [--fields]
