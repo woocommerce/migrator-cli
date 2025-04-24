@@ -15,55 +15,57 @@
 
 ## Commands
 
+Migrates products from a Shopify store to WooCommerce using the Shopify GraphQL API. This command handles product details, images, variations, categories, tags, and more, attempting to map Shopify data to corresponding WooCommerce fields. Use the options below to control the migration scope and behavior.
+
 ```
   wp migrator products [--before] [--after] [--limit] [--perpage] [--next] [--status] [--ids] [--exclude] [--handle] [--product-type] [--skip-update] [--fields] [--exclude-fields] [--remove-orphans] [--verbose]
 
   OPTIONS
 
   [--before]
-    Query Order before this date. ISO 8601 format.
+    Filter products created *before or on* this specific date/time. Use ISO 8601 format (e.g., "2023-10-27T10:00:00Z").
 
   [--after]
-    Query Order after this date. ISO 8601 format.
+    Filter products created *after or on* this specific date/time. Use ISO 8601 format.
 
   [--limit]
-    Limit the total number of orders to process. Set to PHP_INT_MAX by default.
+    Specify the *maximum total* number of products to process across all batches. Defaults to processing all matched products.
 
   [--perpage]
-    Limit the number of orders to process each time.
+    Define the *number of products to fetch* from Shopify in each API request (batch size). Max 250. Defaults to 250.
 
   [--next]
-    Next page link from Shopify.
+    Provide a Shopify *pagination cursor* to resume migration from a specific point, skipping products before this cursor.
 
   [--status]
-    Product status.
+    Filter products by their Shopify status (e.g., `active`, `archived`, `draft`).
 
   [--ids]
-    Query products by IDs.
+    Process *only* the products matching the specified comma-separated Shopify REST IDs.
 
   [--exclude]
-    Exclude products by IDs or by SKU pattern.
+    *Skip* processing products matching the specified comma-separated Shopify REST IDs. Takes precedence over `--ids` if a product is in both.
 
   [--handle]
-    Query products by handles
+    Filter products by their exact Shopify handle (URL slug).
 
   [--product-type]
-    single or variable or all.
+    Filter products by their Shopify Product Type string (e.g., "T-Shirt", "Gift Card"). Use `all` to ignore this filter.
 
   [--skip-update]
-    Force create new products instead of updating existing one base on the handle.
+    If a product with the same original Shopify ID already exists in WooCommerce, *skip* updating it. By default, existing products are updated.
 
   [--fields]
-    Only migrate/update selected fields.
+    Specify a comma-separated list of fields (e.g., `title,sku,images`) to migrate. Only these selected fields will be created or updated on the WooCommerce product.
 
   [--exclude-fields]
-    Exclude selected fields from update.
+    Specify a comma-separated list of fields (e.g., `description,tags`) to *exclude* from migration/update. All other standard fields will be processed.
 
   [--remove-orphans]
-    Remove orphans order items
+    When updating a variable product, delete any existing WooCommerce variations that don't correspond to a variation in the current Shopify data for that product.
 
   [--verbose]
-    Enable verbose output during migration.
+    Enable detailed output during migration, including processing times per product, memory usage, and image upload details.
 
   Example:
   wp migrator products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU_*"
