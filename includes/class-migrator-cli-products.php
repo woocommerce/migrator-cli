@@ -465,7 +465,7 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Checks if a subject matches any of the patterns.
+	 * Supports matching against an array of regular expressions, and will do a glob match so things like CANAL_* will match every product that starts with CANAL_.
 	 *
 	 * @param string $subject the subject to check.
 	 * @param array $patterns the patterns to check against.
@@ -497,7 +497,7 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Gets the corresponding Woo product.
+	 * ets the Woo product that matches the Shopify product id.
 	 *
 	 * @param object $shopify_product the Shopify product data.
 	 * @return WC_Product|null the Woo product or null if not found.
@@ -658,7 +658,7 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Checks if a field should be processed.
+	 * Checks if the field is contained in the $this->fields array.
 	 *
 	 * @param string $field the field name.
 	 * @return bool true if the field should be processed, false otherwise.
@@ -683,7 +683,7 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Gets the Woo product status.
+	 *  Converts the Shopify product status into Woo product status.
 	 *
 	 * @param object $shopify_product the Shopify product data.
 	 * @return string the Woo product status.
@@ -737,7 +737,7 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Gets the Woo product tag IDs.
+	 *  Gets the Woo product tags ids that match the Shopify product tags.
 	 *
 	 * @param object $shopify_product the Shopify product data.
 	 * @return array the Woo product tag IDs.
@@ -921,7 +921,7 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Gets the Woo product image ID.
+	 * Gets the Woo product image id that matches the first Shopify product image id.
 	 *
 	 * @param object $shopify_product the Shopify product data.
 	 * @return int the Woo product image ID.
@@ -1123,7 +1123,7 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Updates the SEO title and description.
+	 * Updates the SEO tittle description for a product.
 	 *
 	 * @param object $shopify_product the Shopify product data.
 	 * @param WC_Product $product the Woo product.
