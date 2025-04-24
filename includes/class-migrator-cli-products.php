@@ -117,7 +117,7 @@ class Migrator_CLI_Products {
 		}
 
 		// Fetch estimated count for progress bar
-		$total_count = $this->fetch_total_product_count( $args );
+		$total_count = $this->fetch_total_product_count( $assoc_args );
 		$progress = \WP_CLI\Utils\make_progress_bar( 'Importing Products', $total_count );
 
 		$overall_start_time = microtime( true );
@@ -1180,21 +1180,36 @@ class Migrator_CLI_Products {
 	 * Note: This is an estimate as the count endpoint doesn't support all filters (e.g., handle, product_type).
 	 * If --limit or --ids are provided, those are used instead for a more accurate progress bar.
 	 *
-	 * @param object $args Parsed command arguments.
+	 * @param array $assoc_args Command-line arguments ['before'] ['after'] ['limit'] ['perpage'] ['next'] ['status'] ['ids'] ['exclude'] ['handle'] ['product-type'] ['skip-update'] ['verbose']
 	 * @return int|null Total product count, or null if count couldn't be determined.
 	 */
-	private function fetch_total_product_count( $args ) {
+	private function fetch_total_product_count( $assoc_args ) {
 		$count_params = array();
-		if ( isset( $args->status ) ) {
-			$count_params['status'] = $args->status;
+		// Use only filters supported by REST count endpoint
+		if ( isset( $assoc_args['status'] ) ) {
+			$count_params['status'] = strtolower( $assoc_args['status'] ); // REST API usually expects lowercase status
+		}
+		// Add other REST-compatible filters here if needed (e.g., created_at_min/max from $assoc_args)
+
+		// Add product_type if set
+		if ( isset( $assoc_args['product-type'] ) ) {
+			$count_params['product_type'] = $assoc_args['product-type'];
+		}
+		// Add created_at_min (from --after) if set
+		if ( isset( $assoc_args['after'] ) ) {
+			$count_params['created_at_min'] = $assoc_args['after'];
+		}
+		// Add created_at_max (from --before) if set
+		if ( isset( $assoc_args['before'] ) ) {
+			$count_params['created_at_max'] = $assoc_args['before'];
 		}
 
-		WP_CLI::line( 'Fetching total product count from Shopify...' );
+		WP_CLI::line( 'Fetching estimated product count from Shopify REST API...' );
 		$response = Migrator_CLI_Utils::rest_request( 'products/count.json', $count_params );
 
 		if ( $response && isset( $response->data->count ) ) {
 			$count = (int) $response->data->count;
-			WP_CLI::line( sprintf( 'Total products found on Shopify: %d', $count ) );
+			WP_CLI::line( sprintf( 'Estimated total products found matching REST filters: %d', $count ) );
 
 			return $count;
 		} else {
