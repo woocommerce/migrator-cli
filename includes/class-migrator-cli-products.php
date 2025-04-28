@@ -163,7 +163,7 @@ class Migrator_CLI_Products {
 			// only print if verbose is on
 			if ( $this->verbose ) {
 				WP_CLI::line( sprintf( 'Batch processed %d products in %.2f seconds.', $batch_processed_count, microtime( true ) - $batch_start_time ) );
-				WP_CLI::line( ''); // Add a newline for readability
+				WP_CLI::line( '' ); // Add a newline for readability
 			}
 
 			// Clear cache if continuing
@@ -175,7 +175,6 @@ class Migrator_CLI_Products {
 
 		// 3. Finalize
 		$progress->finish(); // Finish the progress bar
-		$this->restore_hooks(); // Restore hooks at the very end
 		$this->print_summary( $total_processed_count, $overall_start_time );
 	}
 
@@ -202,17 +201,17 @@ class Migrator_CLI_Products {
 			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . sprintf( 'Excluding these fields: %s', implode( ', ', $exclude_fields ) ) );
 		}
 
-		// Parse other arguments
+		// Parse other arguments.
 		$args = new stdClass();
 		$args->limit           = isset( $assoc_args['limit'] ) ? (int) $assoc_args['limit'] : PHP_INT_MAX;
 		$args->perpage         = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 250 ) : 250;
 		$args->skip_update     = isset( $assoc_args['skip-update'] );
 		$args->exclude_ids     = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
-		$args->after_cursor    = isset( $assoc_args['next' ] ) ? $assoc_args['next'] : null;
-		$args->target_rest_ids = isset( $assoc_args['ids'] ) ? explode(',', $assoc_args['ids']) : null;
-		$this->verbose 		   = isset( $assoc_args['verbose'] );
+		$args->after_cursor    = isset( $assoc_args['next'] ) ? $assoc_args['next'] : null;
+		$args->target_rest_ids = isset( $assoc_args['ids'] ) ? explode( ',', $assoc_args['ids'] ) : null;
+		$this->verbose         = isset( $assoc_args['verbose'] );
 
-		// Build GraphQL query filter string
+		// Build GraphQL query filter string.
 		$query_parts = array();
 		if ( isset( $assoc_args['status'] ) ) {
 			$query_parts[] = 'status:' . strtoupper( $assoc_args['status'] );
@@ -235,7 +234,7 @@ class Migrator_CLI_Products {
 		if ( $args->query_filter ) {
 			WP_CLI::line( 'Using query filter: ' . $args->query_filter );
 		}
-		WP_CLI::line( '');
+		WP_CLI::line( '' );
 
 		return $args;
 	}
@@ -301,7 +300,7 @@ class Migrator_CLI_Products {
 
 		return array(
 			'processed_count' => $processed_count,
-			'last_cursor' => $last_cursor,
+			'last_cursor'     => $last_cursor,
 		);
 	}
 
@@ -324,7 +323,7 @@ class Migrator_CLI_Products {
 		$product_start_time = microtime( true );
 
 		// Handle --ids filter
-		if ( isset( $args->target_rest_ids ) && ! in_array( $rest_id, $args->target_rest_ids ) ) {
+		if ( isset( $args->target_rest_ids ) && ! in_array( $rest_id, $args->target_rest_ids, true ) ) {
 			if ( $this->verbose ) {
 				WP_CLI::line( sprintf( 'Skipping product %s (Rest ID: %s) - Not in target IDs.', $shopify_product->handle, $rest_id ) );
 			}
@@ -334,7 +333,7 @@ class Migrator_CLI_Products {
 		}
 
 		// Handle --exclude filter
-		if ( in_array( $rest_id, $args->exclude_ids ) ) {
+		if ( in_array( $rest_id, $args->exclude_ids, true ) ) {
 			if ( $this->verbose ) {
 				WP_CLI::line( sprintf( 'Skipping product %s (Rest ID: %s) - Excluded.', $shopify_product->handle, $rest_id ) );
 			}
@@ -368,7 +367,6 @@ class Migrator_CLI_Products {
 		if ( $this->verbose ) {
 			WP_CLI::line( sprintf( 'Product %s (Rest ID: %s) finished in %.2f seconds.', $shopify_product->handle, $rest_id, $product_duration ) );
 		}
-
 
 		return array( 'processed' => $processed );
 	}
@@ -497,7 +495,7 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * ets the Woo product that matches the Shopify product id.
+	 * Gets the Woo product that matches the Shopify product id.
 	 *
 	 * @param object $shopify_product the Shopify product data.
 	 * @return WC_Product|null the Woo product or null if not found.
@@ -516,13 +514,14 @@ class Migrator_CLI_Products {
 		if ( count( $woo_products ) === 1 && is_a( $woo_products[0], 'WC_Product' ) ) {
 			return wc_get_product( $woo_products[0] );
 		}
+		return null; // Explicitly return null if not found
 	}
 
 	/**
 	 * Creates or updates a Woo product.
 	 *
-	 * @param object $shopify_product the Shopify product data.
-	 * @param WC_Product $woo_product the Woo product.
+	 * @param object     $shopify_product the Shopify product data.
+	 * @param ?WC_Product $woo_product    the Woo product or null if creating new.
 	 */
 	private function create_or_update_woo_product( $shopify_product, $woo_product = null ) {
 		$shopify_product_id = basename( $shopify_product->id );
@@ -674,16 +673,16 @@ class Migrator_CLI_Products {
 	 * @return string the sanitized description.
 	 */
 	private function sanitize_product_description( $html ) {
-		$html = htmlspecialchars_decode(htmlspecialchars($html, ENT_QUOTES, 'UTF-8', false), ENT_QUOTES);
+		$html = html_entity_decode( $html, ENT_QUOTES, 'UTF-8' );
 		if ( ! $html ) return '';
-		$html = preg_replace( '~<script(.*?)</script>~Usi', '', $html );
-		$html = preg_replace( '~<style(.*?)</style>~Usi', '', $html );
+		$html = preg_replace( '~<script(.*?)>(.*?)</script>~Usi', '', $html );
+		$html = preg_replace( '~<style(.*?)>(.*?)</style>~Usi', '', $html );
 		$html = wp_kses_post( $html );
 		return trim( $html );
 	}
 
 	/**
-	 *  Converts the Shopify product status into Woo product status.
+	 * Converts the Shopify product status into Woo product status.
 	 *
 	 * @param object $shopify_product the Shopify product data.
 	 * @return string the Woo product status.
@@ -704,46 +703,57 @@ class Migrator_CLI_Products {
 	 * @return array the Woo product category IDs.
 	 */
 	private function get_woo_product_category_ids( $shopify_product ) {
-		$category_ids = [];
+		$category_ids = array();
 		if ( ! property_exists( $shopify_product, 'collections' ) || empty( $shopify_product->collections->edges ) ) {
-			$category_ids[] = get_option( 'default_product_cat' );
+			$default_cat = get_option( 'default_product_cat' );
+			if ( $default_cat ) {
+				$category_ids[] = $default_cat;
+			}
 			return $category_ids;
 		}
 
 		foreach ( $shopify_product->collections->edges as $collection_edge ) {
-			$collection_node = $collection_edge->node;
-			$woo_product_category = get_term_by( 'slug', $collection_node->handle, 'product_cat', ARRAY_A );
+			$collection_node      = $collection_edge->node;
+			$woo_product_category = get_term_by( 'slug', $collection_node->handle, 'product_cat' );
 
 			if ( ! $woo_product_category ) {
-				$woo_product_category = wp_insert_term(
+				$term_result = wp_insert_term(
 					$collection_node->title,
 					'product_cat',
-					[ 'slug' => $collection_node->handle ]
+					array( 'slug' => $collection_node->handle )
 				);
 
-				if ( is_wp_error( $woo_product_category ) ) {
+				if ( is_wp_error( $term_result ) ) {
+					WP_CLI::warning( "Failed to insert category '{$collection_node->title}' (slug: {$collection_node->handle}): " . $term_result->get_error_message() );
 					continue;
 				}
+				$category_ids[] = $term_result['term_id'];
+			} else {
+				$category_ids[] = $woo_product_category->term_id;
 			}
-
-			$category_ids[] = $woo_product_category['term_id'];
 		}
 
+		// Ensure no duplicates if a product is in multiple collections mapping to the same category
+		$category_ids = array_unique( $category_ids );
+
 		if ( empty( $category_ids ) ) {
-			$category_ids[] = get_option( 'default_product_cat' );
+			$default_cat = get_option( 'default_product_cat' );
+			if ( $default_cat ) {
+				$category_ids[] = $default_cat;
+			}
 		}
 
 		return $category_ids;
 	}
 
 	/**
-	 *  Gets the Woo product tags ids that match the Shopify product tags.
+	 * Gets the Woo product tags ids that match the Shopify product tags.
 	 *
 	 * @param object $shopify_product the Shopify product data.
 	 * @return array the Woo product tag IDs.
 	 */
 	private function get_woo_product_tag_ids( $shopify_product ) {
-		$tag_ids = [];
+		$tag_ids = array();
 		if ( empty( $shopify_product->tags ) ) {
 			return $tag_ids;
 		}
@@ -754,32 +764,34 @@ class Migrator_CLI_Products {
 				continue;
 			}
 
-			$woo_product_tag = get_term_by( 'name', $trimmed_tag, 'product_tag', ARRAY_A );
+			$woo_product_tag = get_term_by( 'name', $trimmed_tag, 'product_tag' );
 			if ( ! $woo_product_tag ) {
-				$tag_slug = sanitize_title( $trimmed_tag );
-				$woo_product_tag = wp_insert_term(
+				$tag_slug    = sanitize_title( $trimmed_tag );
+				$term_result = wp_insert_term(
 					$trimmed_tag,
 					'product_tag',
-					[ 'slug' => $tag_slug ]
+					array( 'slug' => $tag_slug )
 				);
 
-				if ( is_wp_error( $woo_product_tag ) ) {
+				if ( is_wp_error( $term_result ) ) {
+					WP_CLI::warning( "Failed to insert tag '{$trimmed_tag}' (slug: {$tag_slug}): " . $term_result->get_error_message() );
 					continue;
 				}
+				$tag_ids[] = $term_result['term_id'];
+			} else {
+				$tag_ids[] = $woo_product_tag->term_id;
 			}
-
-			$tag_ids[] = $woo_product_tag['term_id'];
 		}
 
-		return $tag_ids;
+		return array_unique( $tag_ids );
 	}
 
 	/**
-	 * Returns a conversion table for a given weight.
+	 * Converts weight based on Shopify weight unit to store's weight unit.
 	 *
-	 * @param float $weight the old weight.
-	 * @param string $weight_unit the original unit.
-	 * @return float
+	 * @param ?float  $weight      The weight value from Shopify.
+	 * @param ?string $weight_unit The weight unit from Shopify (e.g., GRAMS, KILOGRAMS).
+	 * @return float The converted weight, or 0.0 if input is invalid.
 	 */
 	private function get_converted_weight( $weight, $weight_unit ) {
 		if ( null === $weight || null === $weight_unit ) {
@@ -787,16 +799,17 @@ class Migrator_CLI_Products {
 		}
 
 		$unit_map = array(
-			'GRAMS'    => 'g',
+			'GRAMS'     => 'g',
 			'KILOGRAMS' => 'kg',
 			'POUNDS'    => 'lb',
 			'OUNCES'    => 'oz',
 		);
 
-		$shopify_unit_key = isset( $unit_map[ $weight_unit ] ) ? $unit_map[ $weight_unit ] : null;
+		$shopify_unit_key = $unit_map[ $weight_unit ] ?? null;
 
 		if ( ! $shopify_unit_key ) {
-			return $weight;
+			WP_CLI::warning( "Unknown Shopify weight unit '{$weight_unit}'. Returning original weight {$weight}." );
+			return (float) $weight;
 		}
 
 		$store_weight_unit = get_option( 'woocommerce_weight_unit' );
@@ -805,7 +818,11 @@ class Migrator_CLI_Products {
 			$store_weight_unit = 'lb';
 		}
 
-		$conversion = array(
+		if ( $shopify_unit_key === $store_weight_unit ) {
+			return (float) $weight;
+		}
+
+		$conversion_factors = array(
 			'kg' => array(
 				'kg' => 1,
 				'g'  => 1000,
@@ -832,45 +849,63 @@ class Migrator_CLI_Products {
 			),
 		);
 
-		if ( ! isset( $conversion[ $shopify_unit_key ][ $store_weight_unit ] ) ) {
-			return $weight;
+		if ( ! isset( $conversion_factors[ $shopify_unit_key ][ $store_weight_unit ] ) ) {
+			WP_CLI::warning( "Could not find conversion factor from '{$shopify_unit_key}' to '{$store_weight_unit}'. Returning original weight {$weight}." );
+			return (float) $weight;
 		}
 
-		return (float) $weight * $conversion[ $shopify_unit_key ][ $store_weight_unit ];
+		return (float) $weight * $conversion_factors[ $shopify_unit_key ][ $store_weight_unit ];
 	}
 
 	/**
-	 * Sets the Woo product brand.
+	 * Sets the Woo product brand using 'product_brand' taxonomy.
 	 *
-	 * @param object $shopify_product the Shopify product data.
-	 * @param WC_Product $product the Woo product.
+	 * @param object     $shopify_product the Shopify product data.
+	 * @param WC_Product $product         the Woo product.
 	 */
 	private function set_woo_product_brand( $shopify_product, $product ) {
 		if ( ! taxonomy_exists( 'product_brand' ) ) {
+			if ( $this->verbose ) {
+				WP_CLI::line( ' - Skipping brand: product_brand taxonomy does not exist.' );
+			}
 			return;
 		}
 
 		$brand = $shopify_product->vendor;
 		if ( empty( $brand ) ) {
+			if ( $this->verbose ) {
+				WP_CLI::line( ' - Skipping brand: Shopify vendor is empty.' );
+			}
 			return;
 		}
 
-		$woo_product_brand = get_term_by( 'name', $brand, 'product_brand', ARRAY_A );
-		if ( ! $woo_product_brand ) {
-			$woo_product_brand = wp_insert_term( $brand, 'product_brand' );
-			if ( is_wp_error( $woo_product_brand ) ) {
+		$brand_term = get_term_by( 'name', $brand, 'product_brand' );
+		if ( ! $brand_term ) {
+			$term_result = wp_insert_term( $brand, 'product_brand' );
+			if ( is_wp_error( $term_result ) ) {
+				WP_CLI::warning( "Failed to insert brand '{$brand}': " . $term_result->get_error_message() );
 				return;
+			}
+			$brand_term_id = $term_result['term_id'];
+			if ( $this->verbose ) {
+				WP_CLI::line( " - Created brand '{$brand}' with ID {$brand_term_id}." );
+			}
+		} else {
+			$brand_term_id = $brand_term->term_id;
+			if ( $this->verbose ) {
+				WP_CLI::line( " - Found existing brand '{$brand}' with ID {$brand_term_id}." );
 			}
 		}
 
-		wp_set_object_terms( $product->get_id(), $woo_product_brand['term_id'], 'product_brand' );
+		wp_set_object_terms( $product->get_id(), $brand_term_id, 'product_brand' );
 	}
 
 	/**
-	 * Saves product images.
+	 * Downloads and attaches product images from Shopify URLs.
+	 * Uses `media_sideload_image`. Updates `_migration_data['images_mapping']`.
 	 *
-	 * @param object $shopify_product the Shopify product data.
-	 * @param WC_Product $product the Woo product.
+	 * @param object     $shopify_product the Shopify product data.
+	 * @param WC_Product $product         the Woo product.
 	 */
 	private function upload_images( $shopify_product, $product ) {
 		if ( ! property_exists( $shopify_product, 'images' ) || empty( $shopify_product->images->edges ) ) {
@@ -881,29 +916,33 @@ class Migrator_CLI_Products {
 			WP_CLI::line( 'Starting image processing...' );
 		}
 
-		if ( empty( $this->migration_data['images_mapping'] ) ) {
+		if ( ! isset( $this->migration_data['images_mapping'] ) || ! is_array( $this->migration_data['images_mapping'] ) ) {
 			$this->migration_data['images_mapping'] = array();
 		}
 
 		foreach ( $shopify_product->images->edges as $image_edge ) {
-			$image_node = $image_edge->node;
+			$image_node   = $image_edge->node;
 			$image_gql_id = $image_node->id;
 
 			if ( isset( $this->migration_data['images_mapping'][ $image_gql_id ] ) && wp_attachment_is_image( $this->migration_data['images_mapping'][ $image_gql_id ] ) ) {
+				if ( $this->verbose ) {
+					WP_CLI::line( sprintf( ' - Skipping image %s: Already mapped to attachment ID %s.', $image_gql_id, $this->migration_data['images_mapping'][ $image_gql_id ] ) );
+				}
 				continue;
 			}
 
 			$memory_before = round( memory_get_usage() / 1024 / 1024, 2 );
-			$memory_limit = ini_get('memory_limit');
+			$memory_limit  = ini_get( 'memory_limit' );
 
 			if ( $this->verbose ) {
 				WP_CLI::line( sprintf( '- Uploading image %s from %s... (Memory Usage: %s MB / Limit: %s)', $image_gql_id, $image_node->url, $memory_before, $memory_limit ) );
 			}
 
-			$upload_start_time = microtime(true);
-			$image_id = media_sideload_image( $image_node->url, $product->get_id(), $image_node->altText, 'id' );
-			$upload_duration = microtime(true) - $upload_start_time;
-			$memory_after = round( memory_get_usage() / 1024 / 1024, 2 );
+			$upload_start_time = microtime( true );
+			$image_desc        = $image_node->altText ?: $product->get_name();
+			$image_id          = media_sideload_image( $image_node->url, $product->get_id(), $image_desc, 'id' );
+			$upload_duration   = microtime( true ) - $upload_start_time;
+			$memory_after      = round( memory_get_usage() / 1024 / 1024, 2 );
 
 			if ( is_wp_error( $image_id ) ) {
 				WP_CLI::warning( sprintf( ' - Error uploading %s: %s (Duration: %.2f seconds, Memory after: %s MB)', $image_node->url, $image_id->get_error_message(), $upload_duration, $memory_after ) );
@@ -911,6 +950,10 @@ class Migrator_CLI_Products {
 			}
 
 			$this->migration_data['images_mapping'][ $image_gql_id ] = $image_id;
+
+			if ( $image_node->altText ) {
+				update_post_meta( $image_id, '_wp_attachment_image_alt', $image_node->altText );
+			}
 
 			if ( $this->verbose ) {
 				WP_CLI::line( sprintf( ' - Mapped image %s to attachment ID %s. (Upload took %.2f seconds, Memory after: %s MB)', $image_gql_id, $image_id, $upload_duration, $memory_after ) );
@@ -921,10 +964,11 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Gets the Woo product image id that matches the first Shopify product image id.
+	 * Gets the Woo attachment ID for the Shopify featured image.
+	 * Relies on `_migration_data['images_mapping']` being populated by `upload_images`.
 	 *
 	 * @param object $shopify_product the Shopify product data.
-	 * @return int the Woo product image ID.
+	 * @return int Attachment ID or 0 if not found/set.
 	 */
 	private function get_woo_product_image_id( $shopify_product ) {
 		if ( empty( $shopify_product->featuredImage ) || empty( $this->migration_data['images_mapping'] ) ) {
@@ -933,27 +977,27 @@ class Migrator_CLI_Products {
 
 		$featured_image_gql_id = $shopify_product->featuredImage->id;
 
-		return isset( $this->migration_data['images_mapping'][ $featured_image_gql_id ] ) ? $this->migration_data['images_mapping'][ $featured_image_gql_id ] : 0;
+		return $this->migration_data['images_mapping'][ $featured_image_gql_id ] ?? 0;
 	}
 
 	/**
-	 * Gets the Woo product gallery image IDs.
+	 * Gets the Woo attachment IDs for the product gallery.
+	 * Excludes the featured image ID. Relies on `_migration_data['images_mapping']`.
 	 *
 	 * @param object $shopify_product the Shopify product data.
-	 * @return array the Woo product gallery image IDs.
+	 * @return array Array of attachment IDs.
 	 */
 	private function get_woo_product_gallery_image_ids( $shopify_product ) {
-		$gallery_ids = [];
-		$featured_image_wp_id = $this->get_woo_product_image_id( $shopify_product );
-
+		$gallery_ids = array();
 		if ( empty( $this->migration_data['images_mapping'] ) ) {
 			return $gallery_ids;
 		}
 
-		$all_wp_image_ids = array_values( $this->migration_data['images_mapping'] );
+		$featured_image_wp_id = $this->get_woo_product_image_id( $shopify_product );
+		$all_wp_image_ids     = array_values( $this->migration_data['images_mapping'] );
 
 		if ( $featured_image_wp_id ) {
-			$gallery_ids = array_diff( $all_wp_image_ids, [ $featured_image_wp_id ] );
+			$gallery_ids = array_diff( $all_wp_image_ids, array( $featured_image_wp_id ) );
 		} else {
 			$gallery_ids = $all_wp_image_ids;
 		}
@@ -962,41 +1006,62 @@ class Migrator_CLI_Products {
 	}
 
 	/**
-	 * Creates or updates Woo product variations.
+	 * Creates or updates Woo product variations based on Shopify variants.
+	 * Handles attributes, variation data (price, sku, stock, weight, image), and mapping.
 	 *
-	 * @param object $shopify_product the Shopify product data.
-	 * @param WC_Product $product the Woo product.
+	 * @param object     $shopify_product the Shopify product data.
+	 * @param WC_Product $product         the Woo (variable) product.
 	 */
 	private function create_or_update_woo_product_variations( $shopify_product, $product ) {
 		$attribute_taxonomy_mapping = array();
-		$woo_attributes = array();
+		$woo_attributes             = array();
+
 		if ( $this->should_process( 'attributes' ) && property_exists( $shopify_product, 'options' ) && ! empty( $shopify_product->options ) ) {
 			foreach ( $shopify_product->options as $option ) {
 				$taxonomy_slug = sanitize_title( $option->name );
 				$taxonomy_name = 'pa_' . $taxonomy_slug;
+
 				if ( ! taxonomy_exists( $taxonomy_name ) ) {
-					$attribute_id = wc_create_attribute( array( 'name' => $option->name, 'slug' => $taxonomy_slug, 'type' => 'select', 'order_by' => 'menu_order' ) );
+					$attribute_id = wc_create_attribute(
+						array(
+							'name'         => $option->name,
+							'slug'         => $taxonomy_slug,
+							'type'         => 'select',
+							'order_by'     => 'menu_order',
+							'has_archives' => false,
+						)
+					);
 					if ( is_wp_error( $attribute_id ) ) {
+						WP_CLI::warning( "Failed to create attribute '{$option->name}': " . $attribute_id->get_error_message() );
 						continue;
 					}
 				} else {
-					$attribute_id = wc_attribute_taxonomy_id_by_name( $taxonomy_name );
+					if ( function_exists( 'wc_attribute_taxonomy_id_by_name' ) ) {
+						$attribute_id = wc_attribute_taxonomy_id_by_name( $taxonomy_name );
+					} else {
+						$attribute_taxonomy = get_taxonomy( $taxonomy_name );
+						$attribute_id       = $attribute_taxonomy ? $attribute_taxonomy->attribute_id : 0;
+					}
 				}
+
 				$attribute_taxonomy_mapping[ $option->name ] = $taxonomy_name;
+
 				$term_ids = array();
 				foreach ( $option->values as $value ) {
 					$term_slug = sanitize_title( $value );
-					$term = get_term_by( 'slug', $term_slug, $taxonomy_name, ARRAY_A );
+					$term      = get_term_by( 'slug', $term_slug, $taxonomy_name );
 					if ( ! $term ) {
 						$term_result = wp_insert_term( $value, $taxonomy_name, array( 'slug' => $term_slug ) );
 						if ( is_wp_error( $term_result ) ) {
+							WP_CLI::warning( "Failed to insert term '{$value}' (slug: {$term_slug}) into {$taxonomy_name}: " . $term_result->get_error_message() );
 							continue;
 						}
 						$term_ids[] = $term_result['term_id'];
 					} else {
-						$term_ids[] = $term['term_id'];
+						$term_ids[] = $term->term_id;
 					}
 				}
+
 				$woo_attribute = new WC_Product_Attribute();
 				$woo_attribute->set_name( $taxonomy_name );
 				$woo_attribute->set_id( $attribute_id );
@@ -1006,6 +1071,7 @@ class Migrator_CLI_Products {
 				$woo_attribute->set_variation( true );
 				$woo_attributes[] = $woo_attribute;
 			}
+
 			unregister_taxonomy( 'product_type' );
 			WC_Post_Types::register_taxonomies();
 			$product->set_attributes( $woo_attributes );
@@ -1013,38 +1079,58 @@ class Migrator_CLI_Products {
 		}
 
 		if ( ! property_exists( $shopify_product, 'variants' ) || empty( $shopify_product->variants->edges ) ) {
+			WP_CLI::warning( "Variable product (ID: {$product->get_id()}) has no variants in Shopify data." );
 			return;
 		}
 
-		if ( empty( $this->migration_data['variations_mapping'] ) ) {
+		if ( ! isset( $this->migration_data['variations_mapping'] ) || ! is_array( $this->migration_data['variations_mapping'] ) ) {
 			$this->migration_data['variations_mapping'] = array();
 		}
 		$processed_variation_ids = array();
 
 		foreach ( $shopify_product->variants->edges as $variant_edge ) {
-			$variant_node = $variant_edge->node;
-			$variant_gql_id = $variant_node->id;
+			$variant_node    = $variant_edge->node;
+			$variant_gql_id  = $variant_node->id;
 			$variant_rest_id = basename( $variant_gql_id );
-			$variation = null;
+			$variation       = null;
 
 			if ( isset( $this->migration_data['variations_mapping'][ $variant_gql_id ] ) ) {
 				$_variation = wc_get_product( $this->migration_data['variations_mapping'][ $variant_gql_id ] );
-				if ( is_a( $_variation, 'WC_Product_Variation' ) ) {
+				if ( $_variation instanceof WC_Product_Variation && $_variation->get_parent_id() === $product->get_id() ) {
 					$variation = $_variation;
+				} else {
+					unset( $this->migration_data['variations_mapping'][ $variant_gql_id ] );
 				}
-			} else {
-				$found_variations = get_posts( array( 'post_parent' => $product->get_id(), 'post_type' => 'product_variation', 'numberposts' => 1, 'meta_key' => '_original_variant_id', 'meta_value' => $variant_rest_id ) );
-				if ( ! empty( $found_variations ) ) {
-					$variation = new WC_Product_Variation( $found_variations[0]->ID );
-					$this->migration_data['variations_mapping'][ $variant_gql_id ] = $variation->get_id();
+			}
+
+			if ( ! $variation ) {
+				$query_args = array(
+					'post_parent' => $product->get_id(),
+					'post_type'   => 'product_variation',
+					'numberposts' => 1,
+					'post_status' => 'any',
+					'meta_key'    => '_original_variant_id',
+					'meta_value'  => $variant_rest_id,
+					'fields'      => 'ids',
+				);
+				$found_variation_ids = get_posts( $query_args );
+				if ( ! empty( $found_variation_ids ) ) {
+					$variation_id = $found_variation_ids[0];
+					$variation    = wc_get_product( $variation_id );
+					if ( $variation instanceof WC_Product_Variation ) {
+						$this->migration_data['variations_mapping'][ $variant_gql_id ] = $variation_id;
+					} else {
+						WP_CLI::warning( "Found post ID {$variation_id} matching original variant ID {$variant_rest_id}, but it is not a WC_Product_Variation." );
+						$variation = null;
+					}
 				}
 			}
 
 			if ( ! $variation ) {
 				$variation = new WC_Product_Variation();
+				$variation->set_parent_id( $product->get_id() );
 			}
 
-			$variation->set_parent_id( $product->get_id() );
 			$variation->set_menu_order( $variant_node->position );
 			$variation->set_status( 'publish' );
 
@@ -1063,19 +1149,23 @@ class Migrator_CLI_Products {
 				if ( isset( $this->migration_data['images_mapping'][ $variant_image_gql_id ] ) ) {
 					$variation->set_image_id( $this->migration_data['images_mapping'][ $variant_image_gql_id ] );
 				} else {
-					WP_CLI::line( sprintf( 'Variant image %s not found in mapping. Attempting direct upload...', $variant_image_gql_id ) );
-					$image_id = media_sideload_image( $variant_node->image->url, $product->get_id(), $variant_node->image->altText, 'id' );
+					WP_CLI::line( sprintf( ' - Variant image %s not found in mapping for variation %s. Attempting direct upload...', $variant_image_gql_id, $variant_gql_id ) );
+					$image_desc = $variant_node->image->altText ?: $product->get_name() . ' - ' . implode( ' / ', wp_list_pluck( $variant_node->selectedOptions, 'value' ) );
+					$image_id = media_sideload_image( $variant_node->image->url, $product->get_id(), $image_desc, 'id' );
 					if ( ! is_wp_error( $image_id ) ) {
 						$variation->set_image_id( $image_id );
 						$this->migration_data['images_mapping'][ $variant_image_gql_id ] = $image_id;
+						$product->update_meta_data( '_migration_data', $this->migration_data );
 					} else {
-						WP_CLI::warning( sprintf( 'Failed to upload variant image %s: %s', $variant_node->image->url, $image_id->get_error_message() ) );
+						WP_CLI::warning( sprintf( ' - Failed to upload variant image %s: %s', $variant_node->image->url, $image_id->get_error_message() ) );
 					}
 				}
+			} else {
+				$variation->set_image_id( '' );
 			}
 
 			if ( $this->should_process( 'price' ) ) {
-				if ( $variant_node->compareAtPrice && $variant_node->compareAtPrice > $variant_node->price ) {
+				if ( $variant_node->compareAtPrice && (float) $variant_node->compareAtPrice > (float) $variant_node->price ) {
 					$variation->set_regular_price( $variant_node->compareAtPrice );
 					$variation->set_sale_price( $variant_node->price );
 				} else {
@@ -1089,6 +1179,8 @@ class Migrator_CLI_Products {
 					add_filter( 'wc_product_has_unique_sku', '__return_false', 10, 3 );
 					$variation->set_sku( $variant_node->sku );
 					remove_filter( 'wc_product_has_unique_sku', '__return_false' );
+				} else {
+					$variation->set_sku( '' );
 				}
 			}
 
@@ -1096,15 +1188,16 @@ class Migrator_CLI_Products {
 				$variation_attributes = array();
 				foreach ( $variant_node->selectedOptions as $selectedOption ) {
 					if ( isset( $attribute_taxonomy_mapping[ $selectedOption->name ] ) ) {
-						$taxonomy = $attribute_taxonomy_mapping[ $selectedOption->name ];
-						$term = get_term_by( 'name', $selectedOption->value, $taxonomy );
-						if ( $term ) {
+						$taxonomy  = $attribute_taxonomy_mapping[ $selectedOption->name ];
+						$term_slug = sanitize_title( $selectedOption->value );
+						$term      = get_term_by( 'slug', $term_slug, $taxonomy );
+						if ( $term instanceof WP_Term ) {
 							$variation_attributes[ $taxonomy ] = $term->slug;
 						} else {
-							WP_CLI::warning( "Could not find term '{$selectedOption->value}' in taxonomy '{$taxonomy}' for variation {$variant_gql_id}." );
+							WP_CLI::warning( "Could not find term with slug '{$term_slug}' (from value '{$selectedOption->value}') in taxonomy '{$taxonomy}' for variation {$variant_gql_id}." );
 						}
 					} else {
-						WP_CLI::warning("Attribute taxonomy mapping not found for option '{$selectedOption->name}'.");
+						WP_CLI::warning( "Attribute taxonomy mapping not found for option '{$selectedOption->name}' while processing variation {$variant_gql_id}." );
 					}
 				}
 				$variation->set_attributes( $variation_attributes );
@@ -1112,109 +1205,155 @@ class Migrator_CLI_Products {
 
 			$variation->update_meta_data( '_original_variant_id', $variant_rest_id );
 			$variation->update_meta_data( '_original_product_id', basename( $variant_node->product->id ) );
+
 			$variation_id = $variation->save();
-			$processed_variation_ids[] = $variation_id;
-			$this->migration_data['variations_mapping'][ $variant_gql_id ] = $variation_id;
+			if ( $variation_id ) {
+				$processed_variation_ids[]                              = $variation_id;
+				$this->migration_data['variations_mapping'][ $variant_gql_id ] = $variation_id;
+				if ( $this->verbose ) {
+					WP_CLI::line( sprintf( ' - Saved variation ID %d for Shopify variant %s', $variation_id, $variant_gql_id ) );
+				}
+			} else {
+				WP_CLI::warning( sprintf( ' - Failed to save variation for Shopify variant %s', $variant_gql_id ) );
+			}
 		}
 
 		$product->update_meta_data( '_migration_data', $this->migration_data );
 		$product->save();
+
+		wp_cache_flush();
+
 		$this->clean_up_orphan_variations( $product, $processed_variation_ids );
+
+		WC_Product_Variable_Data_Store_CPT::sync_variation_prices( $product->get_id() );
+		wc_product_sync_stock_status( $product->get_id() );
 	}
 
 	/**
-	 * Updates the SEO tittle description for a product.
+	 * Updates the SEO title/description for a product using Yoast SEO meta fields.
+	 * Uses 'global.title_tag' and 'global.description_tag' metafields if available.
 	 *
-	 * @param object $shopify_product the Shopify product data.
-	 * @param WC_Product $product the Woo product.
+	 * @param object     $shopify_product the Shopify product data.
+	 * @param WC_Product $product         the Woo product.
 	 */
 	private function update_seo_title_description( $shopify_product, WC_Product $product ) {
 		if ( ! defined( 'WPSEO_VERSION' ) ) {
 			return;
 		}
-		$current_seo_title = $product->get_meta( '_yoast_wpseo_title' );
-		$current_seo_description = $product->get_meta( '_yoast_wpseo_metadesc' );
-		$title = $product->get_name();
-		$description = $product->get_description() ? $product->get_description() : wp_strip_all_tags( get_the_excerpt( $product->get_id() ) );
+
+		$seo_title       = null;
+		$seo_description = null;
+
 		if ( property_exists( $shopify_product, 'metafields' ) && ! empty( $shopify_product->metafields->edges ) ) {
 			foreach ( $shopify_product->metafields->edges as $edge ) {
 				$field_node = $edge->node;
 				if ( 'global' === $field_node->namespace && 'title_tag' === $field_node->key && ! empty( $field_node->value ) ) {
-					$title = $field_node->value;
+					$seo_title = $field_node->value;
 				}
 				if ( 'global' === $field_node->namespace && 'description_tag' === $field_node->key && ! empty( $field_node->value ) ) {
-					$description = $field_node->value;
+					$seo_description = $field_node->value;
 				}
 			}
 		}
-		if ( $current_seo_title !== $title ) {
-			$product->update_meta_data( '_yoast_wpseo_title', $title );
-		}
-		if ( $current_seo_description !== $description ) {
-			$product->update_meta_data( '_yoast_wpseo_metadesc', $description );
-		}
-	}
 
+		$final_seo_title = $seo_title ?: $product->get_name();
+		$final_seo_description = $seo_description ?: ( $product->get_description() ?: wp_strip_all_tags( $product->get_short_description() ) );
 
-	private function clean_up_orphan_variations( $product, $processed_variation_ids ) {
-		if ( ! isset( $this->assoc_args['remove-orphans'] ) ) {
-			return;
+		$current_seo_title       = $product->get_meta( '_yoast_wpseo_title' );
+		$current_seo_description = $product->get_meta( '_yoast_wpseo_metadesc' );
+
+		if ( $current_seo_title !== $final_seo_title ) {
+			$product->update_meta_data( '_yoast_wpseo_title', $final_seo_title );
+			if ( $this->verbose ) {
+				WP_CLI::line( " - Updating Yoast title to: {$final_seo_title}" );
+			}
 		}
-		$existing_variations = $product->get_children();
-		$orphans = array_diff( $existing_variations, $processed_variation_ids );
-		if ( ! empty( $orphans ) ) {
-			WP_CLI::line( 'Removing ' . count( $orphans ) . ' orphan variations...' );
-			foreach ( $orphans as $orphan_id ) {
-				$variation_obj = wc_get_product( $orphan_id );
-				if ( $variation_obj ) {
-					$variation_obj->delete( true );
-					WP_CLI::line( 'Removed orphan variation ID: ' . $orphan_id );
-				}
+		if ( $current_seo_description !== $final_seo_description ) {
+			$product->update_meta_data( '_yoast_wpseo_metadesc', $final_seo_description );
+			if ( $this->verbose ) {
+				WP_CLI::line( " - Updating Yoast description to: {$final_seo_description}" );
 			}
 		}
 	}
 
 	/**
-	 * Fetches total product count from Shopify REST API.
+	 * Deletes WooCommerce variations that are children of the product but were not
+	 * in the set of processed variations for the current import run.
+	 * Only runs if `--remove-orphans` argument is present.
 	 *
-	 * Note: This is an estimate as the count endpoint doesn't support all filters (e.g., handle, product_type).
-	 * If --limit or --ids are provided, those are used instead for a more accurate progress bar.
+	 * @param WC_Product $product                 The parent variable product.
+	 * @param array      $processed_variation_ids Array of WC variation IDs that were processed.
+	 */
+	private function clean_up_orphan_variations( $product, $processed_variation_ids ) {
+		if ( ! isset( $this->assoc_args['remove-orphans'] ) ) {
+			return;
+		}
+
+		$existing_variations = $product->get_children();
+		$orphans             = array_diff( $existing_variations, $processed_variation_ids );
+
+		if ( ! empty( $orphans ) ) {
+			WP_CLI::line( 'Removing ' . count( $orphans ) . ' orphan variations...' );
+			foreach ( $orphans as $orphan_id ) {
+				$variation_obj = wc_get_product( $orphan_id );
+				if ( $variation_obj instanceof WC_Product_Variation ) {
+					$variation_obj->delete( true );
+					WP_CLI::line( ' - Removed orphan variation ID: ' . $orphan_id );
+				} else {
+					WP_CLI::warning( ' - Tried to remove orphan variation ID ' . $orphan_id . ', but it was not a valid variation product.' );
+				}
+			}
+			wc_delete_product_transients( $product->get_id() );
+		} elseif ( $this->verbose ) {
+			WP_CLI::line( ' - No orphan variations found to remove.' );
+		}
+	}
+
+	/**
+	 * Fetches total product count from Shopify REST API (as estimate).
+	 * GraphQL doesn't easily provide counts matching complex filters.
+	 * REST count endpoint has limited filter support.
 	 *
-	 * @param array $assoc_args Command-line arguments ['before'] ['after'] ['limit'] ['perpage'] ['next'] ['status'] ['ids'] ['exclude'] ['handle'] ['product-type'] ['skip-update'] ['verbose']
+	 * @param array $assoc_args Command-line arguments provided to the CLI command.
 	 * @return int|null Total product count, or null if count couldn't be determined.
 	 */
 	private function fetch_total_product_count( $assoc_args ) {
 		$count_params = array();
-		// Use only filters supported by REST count endpoint
-		if ( isset( $assoc_args['status'] ) ) {
-			$count_params['status'] = strtolower( $assoc_args['status'] ); // REST API usually expects lowercase status
+		if ( isset( $assoc_args['status'] ) && in_array( strtoupper( $assoc_args['status'] ), array( 'ACTIVE', 'ARCHIVED', 'DRAFT' ) ) ) {
+			$count_params['status'] = strtolower( $assoc_args['status'] );
 		}
-		// Add other REST-compatible filters here if needed (e.g., created_at_min/max from $assoc_args)
-
-		// Add product_type if set
-		if ( isset( $assoc_args['product-type'] ) ) {
-			$count_params['product_type'] = $assoc_args['product-type'];
-		}
-		// Add created_at_min (from --after) if set
 		if ( isset( $assoc_args['after'] ) ) {
 			$count_params['created_at_min'] = $assoc_args['after'];
 		}
-		// Add created_at_max (from --before) if set
 		if ( isset( $assoc_args['before'] ) ) {
 			$count_params['created_at_max'] = $assoc_args['before'];
 		}
 
-		WP_CLI::line( 'Fetching estimated product count from Shopify REST API...' );
+		WP_CLI::line( 'Fetching estimated product count from Shopify REST API (may not reflect all GraphQL filters)...' );
+		if ( ! empty( $count_params ) && $this->verbose ) {
+			WP_CLI::line( ' - Using REST count parameters: ' . wp_json_encode( $count_params ) );
+		} elseif ( $this->verbose ) {
+			WP_CLI::line( ' - No compatible REST count parameters detected.' );
+		}
+
 		$response = Migrator_CLI_Utils::rest_request( 'products/count.json', $count_params );
 
-		if ( $response && isset( $response->data->count ) ) {
+		if ( $response && isset( $response->data->count ) && is_numeric( $response->data->count ) ) {
 			$count = (int) $response->data->count;
 			WP_CLI::line( sprintf( 'Estimated total products found matching REST filters: %d', $count ) );
-
 			return $count;
 		} else {
-			WP_CLI::warning( 'Could not fetch estimated total product count. Progress bar may not show percentage.' );
-			return null; // Indicate unknown count
+			$error_message = 'Could not fetch estimated total product count.';
+			if ( $response && isset( $response->error ) ) {
+				$error_message .= ' API Error: ' . $response->error;
+			} elseif ( ! $response ) {
+				$error_message .= ' Request failed.';
+			} else {
+				$error_message .= ' Unexpected response structure.';
+			}
+			WP_CLI::warning( $error_message . ' Progress bar may not show percentage.' );
+			return null;
 		}
 	}
 }
+
