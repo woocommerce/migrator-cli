@@ -120,10 +120,10 @@ class Migrator_CLI_Products {
 		$total_count = $this->fetch_total_product_count( $assoc_args );
 		$progress = \WP_CLI\Utils\make_progress_bar( 'Importing Products', $total_count );
 
-		$overall_start_time = microtime( true );
+		$overall_start_time    = microtime( true );
 		$total_processed_count = 0;
-		$limit_remaining = $args->limit;
-		$after_cursor = $args->after_cursor;
+		$limit_remaining       = $args->limit;
+		$after_cursor          = $args->after_cursor;
 
 		do {
 			$batch_start_time = microtime( true );
