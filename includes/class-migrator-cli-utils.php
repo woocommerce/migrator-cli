@@ -6,8 +6,8 @@ class Migrator_CLI_Utils {
 	 * Checks if Woocommerce is active and if the Shopify tokens are set.
 	 */
 	public static function health_check() {
-		if ( ! function_exists( 'wc_get_orders' ) ) {
-			WP_CLI::error( 'WooCommerce is not active.' );
+		if ( ! class_exists( 'WooCommerce' ) ) {
+			WP_CLI::error( 'WooCommerce is not active. Please install and activate WooCommerce.' );
 		}
 
 		if ( ! ACCESS_TOKEN ) {
@@ -266,7 +266,6 @@ class Migrator_CLI_Utils {
 		}
 
 		$wp_object_cache->group_ops      = array();
-		$wp_object_cache->memcache_debug = array();
 		$wp_object_cache->cache          = array();
 
 		if ( method_exists( $wp_object_cache, '__remoteset' ) ) {

@@ -203,13 +203,13 @@ class Migrator_CLI_Products {
 
 		// Parse other arguments.
 		$args = new stdClass();
-		$args->limit           = isset( $assoc_args['limit'] ) ? (int) $assoc_args['limit'] : PHP_INT_MAX;
-		$args->perpage         = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 250 ) : 250;
-		$args->skip_update     = isset( $assoc_args['skip-update'] );
-		$args->exclude_ids     = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
-		$args->after_cursor    = isset( $assoc_args['next'] ) ? $assoc_args['next'] : null;
-		$args->target_rest_ids = isset( $assoc_args['ids'] ) ? explode( ',', $assoc_args['ids'] ) : null;
-		$this->verbose         = isset( $assoc_args['verbose'] );
+		$args->limit              = isset( $assoc_args['limit'] ) ? (int) $assoc_args['limit'] : PHP_INT_MAX;
+		$args->perpage            = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 250 ) : 250;
+		$args->skip_update        = isset( $assoc_args['skip-update'] );
+		$args->exclude_ids        = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
+		$args->after_cursor    	  = isset( $assoc_args['next'] ) ? $assoc_args['next'] : null;
+		$args->target_product_ids = isset( $assoc_args['ids'] ) ? explode( ',', $assoc_args['ids'] ) : null;
+		$this->verbose            = isset( $assoc_args['verbose'] );
 
 		// Build GraphQL query filter string.
 		$query_parts = array();
@@ -313,19 +313,19 @@ class Migrator_CLI_Products {
 	 * @return array Result indicating if processed.
 	 */
 	private function process_single_product( $shopify_product, $args, $progress ) {
-		$rest_id = basename( $shopify_product->id );
-		$processed = false;
-		$ticked = false; // Track if progress was ticked for this product
+		$shopify_product_id = basename( $shopify_product->id );
+		$processed          = false;
+		$ticked             = false; // Track if progress was ticked for this product
 
 		if ( $this->verbose ) {
-			WP_CLI::line( sprintf( 'Processing product %s (Rest ID: %s)...', $shopify_product->handle, $rest_id ) );
+			WP_CLI::line( sprintf( 'Processing product %s (Shopify Product ID: %s)...', $shopify_product->handle, $shopify_product_id ) );
 		}
 		$product_start_time = microtime( true );
 
 		// Handle --ids filter
-		if ( isset( $args->target_rest_ids ) && ! in_array( $rest_id, $args->target_rest_ids, true ) ) {
+		if ( isset( $args->target_product_ids ) && ! in_array( $shopify_product_id, $args->target_product_ids, true ) ) {
 			if ( $this->verbose ) {
-				WP_CLI::line( sprintf( 'Skipping product %s (Rest ID: %s) - Not in target IDs.', $shopify_product->handle, $rest_id ) );
+				WP_CLI::line( sprintf( 'Skipping product %s (Shopify Product ID: %s) - Not in target IDs.', $shopify_product->handle, $shopify_product_id ) );
 			}
 			$progress->tick(); // Tick even if skipped when filtering by ID
 			$ticked = true;
@@ -333,9 +333,9 @@ class Migrator_CLI_Products {
 		}
 
 		// Handle --exclude filter
-		if ( in_array( $rest_id, $args->exclude_ids, true ) ) {
+		if ( in_array( $shopify_product_id, $args->exclude_ids, true ) ) {
 			if ( $this->verbose ) {
-				WP_CLI::line( sprintf( 'Skipping product %s (Rest ID: %s) - Excluded.', $shopify_product->handle, $rest_id ) );
+				WP_CLI::line( sprintf( 'Skipping product %s (Shopify Product ID: %s) - Excluded.', $shopify_product->handle, $shopify_product_id ) );
 			}
 			// Don't tick for excludes as they aren't part of the estimated total
 			return array( 'processed' => false );
@@ -358,14 +358,14 @@ class Migrator_CLI_Products {
 				$progress->tick(); // Tick after successful processing
 				$ticked = true;
 			} catch ( Exception $e ) {
-				WP_CLI::warning( sprintf( 'Failed processing product %s (Rest ID: %s). Error: %s', $shopify_product->handle, $rest_id, $e->getMessage() ) );
+				WP_CLI::warning( sprintf( 'Failed processing product %s (Shopify Product ID: %s). Error: %s', $shopify_product->handle, $shopify_product_id, $e->getMessage() ) );
 				// Don't tick if processing failed - let the loop continue and potentially retry or skip
 			}
 		}
 
 		$product_duration = microtime( true ) - $product_start_time;
 		if ( $this->verbose ) {
-			WP_CLI::line( sprintf( 'Product %s (Rest ID: %s) finished in %.2f seconds.', $shopify_product->handle, $rest_id, $product_duration ) );
+			WP_CLI::line( sprintf( 'Product %s (Shopify Product ID: %s) finished in %.2f seconds.', $shopify_product->handle, $shopify_product_id, $product_duration ) );
 		}
 
 		return array( 'processed' => $processed );
@@ -609,8 +609,8 @@ class Migrator_CLI_Products {
 			if ( $this->should_process( 'weight' ) ) {
 				$product->set_weight( $this->get_converted_weight( $variant_node->weight, $variant_node->weightUnit ) );
 			}
-			$variant_rest_id = basename( $variant_node->id );
-			$product->update_meta_data( '_original_variant_id', $variant_rest_id );
+			$variant_id = basename( $variant_node->id );
+			$product->update_meta_data( '_original_variant_id', $variant_id );
 		} else {
 			$product->set_sku( '' );
 		}
@@ -1013,6 +1013,7 @@ class Migrator_CLI_Products {
 	 * @param WC_Product $product         the Woo (variable) product.
 	 */
 	private function create_or_update_woo_product_variations( $shopify_product, $product ) {
+		$shopify_product_id = basename( $shopify_product->id );
 		$attribute_taxonomy_mapping = array();
 		$woo_attributes             = array();
 
@@ -1089,10 +1090,10 @@ class Migrator_CLI_Products {
 		$processed_variation_ids = array();
 
 		foreach ( $shopify_product->variants->edges as $variant_edge ) {
-			$variant_node    = $variant_edge->node;
-			$variant_gql_id  = $variant_node->id;
-			$variant_rest_id = basename( $variant_gql_id );
-			$variation       = null;
+			$variant_node    	= $variant_edge->node;
+			$variant_gql_id  	= $variant_node->id;
+			$shopify_variant_id = basename( $variant_gql_id );
+			$variation       	= null;
 
 			if ( isset( $this->migration_data['variations_mapping'][ $variant_gql_id ] ) ) {
 				$_variation = wc_get_product( $this->migration_data['variations_mapping'][ $variant_gql_id ] );
@@ -1110,7 +1111,7 @@ class Migrator_CLI_Products {
 					'numberposts' => 1,
 					'post_status' => 'any',
 					'meta_key'    => '_original_variant_id',
-					'meta_value'  => $variant_rest_id,
+					'meta_value'  => $shopify_variant_id,
 					'fields'      => 'ids',
 				);
 				$found_variation_ids = get_posts( $query_args );
@@ -1120,7 +1121,7 @@ class Migrator_CLI_Products {
 					if ( $variation instanceof WC_Product_Variation ) {
 						$this->migration_data['variations_mapping'][ $variant_gql_id ] = $variation_id;
 					} else {
-						WP_CLI::warning( "Found post ID {$variation_id} matching original variant ID {$variant_rest_id}, but it is not a WC_Product_Variation." );
+						WP_CLI::warning( "Found post ID {$variation_id} matching original variant ID {$shopify_variant_id}, but it is not a WC_Product_Variation." );
 						$variation = null;
 					}
 				}
@@ -1203,9 +1204,12 @@ class Migrator_CLI_Products {
 				$variation->set_attributes( $variation_attributes );
 			}
 
-			$variation->update_meta_data( '_original_variant_id', $variant_rest_id );
-			$variation->update_meta_data( '_original_product_id', basename( $variant_node->product->id ) );
+			// Store original IDs in meta
+			$variation->update_meta_data( '_original_variant_id', $shopify_variant_id );
+			// Link back to original Shopify product GID's numeric part
+			$variation->update_meta_data( '_original_product_id', $shopify_product_id );
 
+			// Save the variation
 			$variation_id = $variation->save();
 			if ( $variation_id ) {
 				$processed_variation_ids[]                              = $variation_id;
