@@ -41,10 +41,10 @@ Migrates products from a Shopify store to WooCommerce using the Shopify GraphQL 
     Filter products by their Shopify status (e.g., `active`, `archived`, `draft`).
 
   [--ids]
-    Process *only* the products matching the specified comma-separated Shopify REST IDs.
+    Process *only* the products matching the specified comma-separated Shopify Product IDs.
 
   [--exclude]
-    *Skip* processing products matching the specified comma-separated Shopify REST IDs. Takes precedence over `--ids` if a product is in both.
+    *Skip* processing products matching the specified comma-separated Shopify Product IDs. Takes precedence over `--ids` if a product is in both.
 
   [--handle]
     Filter products by their exact Shopify handle (URL slug).

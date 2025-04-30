@@ -15,7 +15,7 @@ class Migrator_CLI_Products {
 					id
 					title
 					handle
-					bodyHtml
+					descriptionHtml
 					status
 					createdAt
 					vendor
@@ -27,25 +27,33 @@ class Migrator_CLI_Products {
 						position
 						values
 					}
-					featuredImage {
-						id
-						url
-						altText
-					}
-					images(first: 50) { # Fetch up to 50 images
-						edges {
-							node {
-								id
+					featuredMedia {
+						... on MediaImage {
+							id
+							image {
 								url
 								altText
 							}
 						}
 					}
-					variants(first: 100) { # Fetch up to 100 variants
+					media(first: 50) {
+						edges {
+							node {
+								... on MediaImage {
+									id
+									image {
+										url
+										altText
+									}
+								}
+							}
+						}
+					}
+					variants(first: 100) {
 						edges {
 							node {
 								id
-								product { id } # Needed for linking variation meta
+								product { id }
 								price
 								compareAtPrice
 								sku
@@ -55,10 +63,18 @@ class Migrator_CLI_Products {
 								weight
 								weightUnit
 								position
-								image {
-									id
-									url
-									altText
+								media(first: 1) {
+									edges {
+										node {
+											... on MediaImage {
+												id
+												image {
+													url
+													altText
+												}
+											}
+										}
+									}
 								}
 								selectedOptions {
 									name
@@ -67,7 +83,7 @@ class Migrator_CLI_Products {
 							}
 						}
 					}
-					collections(first: 20) { # Fetch up to 20 collections
+					collections(first: 20) {
 						edges {
 							node {
 								id
@@ -529,7 +545,7 @@ class Migrator_CLI_Products {
 		$this->migration_data = array(
 			'product_id'         => $shopify_product_id,
 			'original_url'       => '',
-			'images_mapping'     => array(),
+			'images_mapping'     => array(), // Will map MediaImage GQL ID -> WP Attachment ID
 			'metafields'         => array(),
 			'variations_mapping' => array(),
 		);
@@ -556,7 +572,7 @@ class Migrator_CLI_Products {
 		}
 
 		if ( $this->should_process( 'description' ) ) {
-			$product->set_description( $this->sanitize_product_description( $shopify_product->bodyHtml ) );
+			$product->set_description( $this->sanitize_product_description( $shopify_product->descriptionHtml ?? '' ) ); // Use descriptionHtml
 		}
 
 		if ( $this->should_process( 'status' ) ) {
@@ -623,12 +639,12 @@ class Migrator_CLI_Products {
 		}
 
 		if ( $this->should_process( 'images' ) ) {
-			$this->upload_images( $shopify_product, $product );
+			$this->upload_images( $shopify_product, $product ); // Must run before setting image/gallery IDs
 			$product->set_image_id( $this->get_woo_product_image_id( $shopify_product ) );
 			$product->set_gallery_image_ids( $this->get_woo_product_gallery_image_ids( $shopify_product ) );
 		}
 
-		$product->save();
+		$product->save(); // Save again after image/gallery IDs are set
 
 		if ( $this->is_variable_product( $shopify_product ) ) {
 			$this->create_or_update_woo_product_variations( $shopify_product, $product );
@@ -908,7 +924,8 @@ class Migrator_CLI_Products {
 	 * @param WC_Product $product         the Woo product.
 	 */
 	private function upload_images( $shopify_product, $product ) {
-		if ( ! property_exists( $shopify_product, 'images' ) || empty( $shopify_product->images->edges ) ) {
+		// Check the new 'media' connection
+		if ( ! property_exists( $shopify_product, 'media' ) || empty( $shopify_product->media->edges ) ) {
 			return;
 		}
 
@@ -920,9 +937,28 @@ class Migrator_CLI_Products {
 			$this->migration_data['images_mapping'] = array();
 		}
 
-		foreach ( $shopify_product->images->edges as $image_edge ) {
-			$image_node   = $image_edge->node;
-			$image_gql_id = $image_node->id;
+		// Iterate through the 'media' edges
+		foreach ( $shopify_product->media->edges as $media_edge ) {
+			$media_node = $media_edge->node;
+
+			// Skip if not a MediaImage or doesn't have image data
+			if ( ! property_exists( $media_node, 'image' ) || ! is_object( $media_node->image ) || empty( $media_node->id ) ) {
+				if ( $this->verbose ) {
+					WP_CLI::line( sprintf( ' - Skipping media item (not a valid image or missing ID).' ) );
+				}
+				continue;
+			}
+
+			$image_gql_id = $media_node->id; // Use the MediaImage GQL ID
+			$image_url    = $media_node->image->url ?? null;
+			$image_alt    = $media_node->image->altText ?? null;
+
+			if ( empty( $image_url ) ) {
+				if ( $this->verbose ) {
+					WP_CLI::line( sprintf( ' - Skipping image %s: URL is empty.', $image_gql_id ) );
+				}
+				continue;
+			}
 
 			if ( isset( $this->migration_data['images_mapping'][ $image_gql_id ] ) && wp_attachment_is_image( $this->migration_data['images_mapping'][ $image_gql_id ] ) ) {
 				if ( $this->verbose ) {
@@ -935,24 +971,30 @@ class Migrator_CLI_Products {
 			$memory_limit  = ini_get( 'memory_limit' );
 
 			if ( $this->verbose ) {
-				WP_CLI::line( sprintf( '- Uploading image %s from %s... (Memory Usage: %s MB / Limit: %s)', $image_gql_id, $image_node->url, $memory_before, $memory_limit ) );
+				// Use the image URL from the nested image object
+				WP_CLI::line( sprintf('- Uploading image %s from %s... (Memory Usage: %s MB / Limit: %s)', $image_gql_id, $image_url, $memory_before, $memory_limit ) );
 			}
 
 			$upload_start_time = microtime( true );
-			$image_desc        = $image_node->altText ?: $product->get_name();
-			$image_id          = media_sideload_image( $image_node->url, $product->get_id(), $image_desc, 'id' );
+			// Use alt text from the nested image object
+			$image_desc        = $image_alt ?: $product->get_name();
+			// Use the image URL from the nested image object
+			$image_id          = media_sideload_image( $image_url, $product->get_id(), $image_desc, 'id' );
 			$upload_duration   = microtime( true ) - $upload_start_time;
 			$memory_after      = round( memory_get_usage() / 1024 / 1024, 2 );
 
 			if ( is_wp_error( $image_id ) ) {
-				WP_CLI::warning( sprintf( ' - Error uploading %s: %s (Duration: %.2f seconds, Memory after: %s MB)', $image_node->url, $image_id->get_error_message(), $upload_duration, $memory_after ) );
+				// Use the image URL from the nested image object
+				WP_CLI::warning( sprintf( ' - Error uploading %s: %s (Duration: %.2f seconds, Memory after: %s MB)', $image_url, $image_id->get_error_message(), $upload_duration, $memory_after ) );
 				continue;
 			}
 
+			// Map the MediaImage GQL ID to the WP Attachment ID
 			$this->migration_data['images_mapping'][ $image_gql_id ] = $image_id;
 
-			if ( $image_node->altText ) {
-				update_post_meta( $image_id, '_wp_attachment_image_alt', $image_node->altText );
+			// Use alt text from the nested image object
+			if ( $image_alt ) {
+				update_post_meta( $image_id, '_wp_attachment_image_alt', $image_alt );
 			}
 
 			if ( $this->verbose ) {
@@ -960,7 +1002,9 @@ class Migrator_CLI_Products {
 			}
 		}
 
+		// Save migration data after processing all images for the product
 		$product->update_meta_data( '_migration_data', $this->migration_data );
+		// Don't save the product here, let the calling function handle it.
 	}
 
 	/**
@@ -971,13 +1015,15 @@ class Migrator_CLI_Products {
 	 * @return int Attachment ID or 0 if not found/set.
 	 */
 	private function get_woo_product_image_id( $shopify_product ) {
-		if ( empty( $shopify_product->featuredImage ) || empty( $this->migration_data['images_mapping'] ) ) {
+		// Check the new 'featuredMedia'
+		if ( empty( $shopify_product->featuredMedia ) || ! is_object( $shopify_product->featuredMedia ) || empty( $shopify_product->featuredMedia->id ) || empty( $this->migration_data['images_mapping'] ) ) {
 			return 0;
 		}
 
-		$featured_image_gql_id = $shopify_product->featuredImage->id;
+		// Get the MediaImage GQL ID from featuredMedia
+		$featured_media_gql_id = $shopify_product->featuredMedia->id;
 
-		return $this->migration_data['images_mapping'][ $featured_image_gql_id ] ?? 0;
+		return $this->migration_data['images_mapping'][ $featured_media_gql_id ] ?? 0;
 	}
 
 	/**
@@ -993,6 +1039,8 @@ class Migrator_CLI_Products {
 			return $gallery_ids;
 		}
 
+		// This function remains largely the same, as it operates on the WP attachment IDs
+		// stored in images_mapping, which is populated by upload_images.
 		$featured_image_wp_id = $this->get_woo_product_image_id( $shopify_product );
 		$all_wp_image_ids     = array_values( $this->migration_data['images_mapping'] );
 
@@ -1002,7 +1050,7 @@ class Migrator_CLI_Products {
 			$gallery_ids = $all_wp_image_ids;
 		}
 
-		return array_values( $gallery_ids );
+		return array_values( $gallery_ids ); // Ensure keys are re-indexed
 	}
 
 	/**
@@ -1145,23 +1193,40 @@ class Migrator_CLI_Products {
 				$variation->set_weight( $this->get_converted_weight( $variant_node->weight, $variant_node->weightUnit ) );
 			}
 
-			if ( $this->should_process( 'images' ) && $variant_node->image ) {
-				$variant_image_gql_id = $variant_node->image->id;
-				if ( isset( $this->migration_data['images_mapping'][ $variant_image_gql_id ] ) ) {
-					$variation->set_image_id( $this->migration_data['images_mapping'][ $variant_image_gql_id ] );
-				} else {
-					WP_CLI::line( sprintf( ' - Variant image %s not found in mapping for variation %s. Attempting direct upload...', $variant_image_gql_id, $variant_gql_id ) );
-					$image_desc = $variant_node->image->altText ?: $product->get_name() . ' - ' . implode( ' / ', wp_list_pluck( $variant_node->selectedOptions, 'value' ) );
-					$image_id = media_sideload_image( $variant_node->image->url, $product->get_id(), $image_desc, 'id' );
-					if ( ! is_wp_error( $image_id ) ) {
-						$variation->set_image_id( $image_id );
-						$this->migration_data['images_mapping'][ $variant_image_gql_id ] = $image_id;
-						$product->update_meta_data( '_migration_data', $this->migration_data );
-					} else {
-						WP_CLI::warning( sprintf( ' - Failed to upload variant image %s: %s', $variant_node->image->url, $image_id->get_error_message() ) );
+			if ( $this->should_process( 'images' ) && ! empty( $variant_node->media->edges ) ) {
+				$variant_media_node = $variant_node->media->edges[0]->node ?? null;
+
+				// Check if it's a valid MediaImage with ID and nested image data
+				if ( $variant_media_node && property_exists( $variant_media_node, 'image' ) && is_object( $variant_media_node->image ) && ! empty( $variant_media_node->id ) ) {
+					$variant_media_gql_id = $variant_media_node->id; // Use MediaImage GQL ID
+					$variant_image_url    = $variant_media_node->image->url ?? null;
+					$variant_image_alt    = $variant_media_node->image->altText ?? null;
+
+					if ( isset( $this->migration_data['images_mapping'][ $variant_media_gql_id ] ) ) {
+						$variation->set_image_id( $this->migration_data['images_mapping'][ $variant_media_gql_id ] );
+					} elseif ( ! empty( $variant_image_url ) ) {
+						// Only attempt upload if URL exists and not already mapped
+						WP_CLI::line( sprintf( ' - Variant image %s not found in mapping for variation %s. Attempting direct upload...', $variant_media_gql_id, $variant_gql_id ) );
+						// Use alt text from nested image object
+						$image_desc = $variant_image_alt ?: $product->get_name() . ' - ' . implode( ' / ', wp_list_pluck( $variant_node->selectedOptions, 'value' ) );
+						// Use url from nested image object
+						$image_id = media_sideload_image( $variant_image_url, $product->get_id(), $image_desc, 'id' );
+						if ( ! is_wp_error( $image_id ) ) {
+							$variation->set_image_id( $image_id );
+							// Add new mapping for this variant image
+							$this->migration_data['images_mapping'][ $variant_media_gql_id ] = $image_id;
+							$product->update_meta_data( '_migration_data', $this->migration_data ); // Update parent product's meta
+						} else {
+							// Use url from nested image object
+							WP_CLI::warning( sprintf( ' - Failed to upload variant image %s: %s', $variant_image_url, $image_id->get_error_message() ) );
+						}
 					}
+				} else {
+					// No valid image media found for variant, unset image ID
+					$variation->set_image_id( '' );
 				}
 			} else {
+				// No media connection or not processing images, unset image ID
 				$variation->set_image_id( '' );
 			}
 
