@@ -131,12 +131,19 @@ class Migrator_CLI_Products {
 	 */
 	public function migrate_products( $assoc_args ) {
 		Migrator_CLI_Utils::health_check();
-		$this->disable_hooks(); // Disable hooks early
+
+		// Only disable hooks if the flag is set
+		if ( isset( $assoc_args['disable-hooks'] ) ) {
+			$this->disable_hooks();
+		}
 
 		$args = $this->parse_and_validate_args( $assoc_args );
 		if ( ! $args ) {
-			$this->restore_hooks(); // Restore hooks if args are invalid
-			return; // Error handled in parse_and_validate_args
+			// Restore hooks only if they were disabled
+			if ( isset( $assoc_args['disable-hooks'] ) ) {
+				$this->restore_hooks();
+			}
+			return;
 		}
 
 		// Fetch estimated count for progress bar
@@ -200,6 +207,11 @@ class Migrator_CLI_Products {
 		// 3. Finalize
 		$progress->finish(); // Finish the progress bar
 		$this->print_summary( $total_processed_count, $overall_start_time );
+
+		// Restore hooks only if they were disabled
+		if ( $args->disable_hooks ) {
+			$this->restore_hooks();
+		}
 	}
 
 	/**
@@ -234,6 +246,7 @@ class Migrator_CLI_Products {
 		$args->after_cursor    	  = isset( $assoc_args['next'] ) ? $assoc_args['next'] : null;
 		$args->target_product_ids = isset( $assoc_args['ids'] ) ? explode( ',', $assoc_args['ids'] ) : null;
 		$this->verbose            = isset( $assoc_args['verbose'] );
+		$args->disable_hooks      = isset( $assoc_args['disable-hooks'] );
 
 		// Parse variants per product option
 		$variants_per_product_default = 100;

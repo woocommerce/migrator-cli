@@ -18,7 +18,7 @@
 Migrates products from a Shopify store to WooCommerce using the Shopify GraphQL API. This command handles product details, images, variations, categories, tags, and more, attempting to map Shopify data to corresponding WooCommerce fields. Use the options below to control the migration scope and behavior.
 
 ```
-  wp migrator products [--before] [--after] [--limit] [--perpage] [--next] [--status] [--ids] [--exclude] [--handle] [--product-type] [--skip-update] [--fields] [--exclude-fields] [--remove-orphans] [--verbose] [--variants-per-product]
+  wp migrator products [--before] [--after] [--limit] [--perpage] [--next] [--status] [--ids] [--exclude] [--handle] [--product-type] [--skip-update] [--fields] [--exclude-fields] [--remove-orphans] [--verbose] [--variants-per-product] [--disable-hooks]
 
   OPTIONS
 
@@ -69,6 +69,9 @@ Migrates products from a Shopify store to WooCommerce using the Shopify GraphQL 
 
   [--verbose]
     Enable detailed output during migration, including processing times per product, memory usage, and image upload details.
+
+  [--disable-hooks]
+    Disable standard WordPress action hooks (like `save_post`, `wp_insert_post`, various WooCommerce hooks) during the migration process. This can significantly improve performance but might skip integrations relying on these hooks. Use with caution.
 
   Example:
   wp migrator products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU_*"

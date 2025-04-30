@@ -89,6 +89,9 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * [--verbose]
 	 * : Show verbose output of performance and product info
 	 *
+	 * [--disable-hooks]
+	 * : Disable WordPress hooks (like save_post) during migration for performance. Use with caution.
+	 *
 	 * Example:
 	 * wp migrator products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU_*"
 	 *
