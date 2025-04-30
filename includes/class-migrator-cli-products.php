@@ -226,7 +226,7 @@ class Migrator_CLI_Products {
 		// Parse other arguments.
 		$args = new stdClass();
 		$args->limit              = isset( $assoc_args['limit'] ) ? (int) $assoc_args['limit'] : PHP_INT_MAX;
-		$args->perpage            = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 250 ) : 250;
+		$args->perpage            = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 100 ) : 100;
 		$args->skip_update        = isset( $assoc_args['skip-update'] );
 		$args->exclude_ids        = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
 		$args->after_cursor    	  = isset( $assoc_args['next'] ) ? $assoc_args['next'] : null;
