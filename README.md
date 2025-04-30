@@ -18,7 +18,7 @@
 Migrates products from a Shopify store to WooCommerce using the Shopify GraphQL API. This command handles product details, images, variations, categories, tags, and more, attempting to map Shopify data to corresponding WooCommerce fields. Use the options below to control the migration scope and behavior.
 
 ```
-  wp migrator products [--before] [--after] [--limit] [--perpage] [--next] [--status] [--ids] [--exclude] [--handle] [--product-type] [--skip-update] [--fields] [--exclude-fields] [--remove-orphans] [--verbose]
+  wp migrator products [--before] [--after] [--limit] [--perpage] [--next] [--status] [--ids] [--exclude] [--handle] [--product-type] [--skip-update] [--fields] [--exclude-fields] [--remove-orphans] [--verbose] [--variants-per-product]
 
   OPTIONS
 
@@ -29,7 +29,7 @@ Migrates products from a Shopify store to WooCommerce using the Shopify GraphQL 
     Filter products created *after or on* this specific date/time. Use ISO 8601 format.
 
   [--limit]
-    Specify the *maximum total* number of products to process across all batches. Defaults to processing all matched products.
+    Specify the *maximum total* number of products to process across all batches (default:100, max: 250).
 
   [--perpage]
     Define the *number of products to fetch* from Shopify in each API request (batch size). Max 250. Defaults to 250.
@@ -61,6 +61,9 @@ Migrates products from a Shopify store to WooCommerce using the Shopify GraphQL 
   [--exclude-fields]
     Specify a comma-separated list of fields (e.g., `description,tags`) to *exclude* from migration/update. All other standard fields will be processed.
 
+  [--variants-per-product]
+    Number of variants to fetch per product (default: 250, max: 2000).
+
   [--remove-orphans]
     When updating a variable product, delete any existing WooCommerce variations that don't correspond to a variation in the current Shopify data for that product.
 
@@ -83,10 +86,10 @@ Migrates products from a Shopify store to WooCommerce using the Shopify GraphQL 
     Query Order after this date. ISO 8601 format.
 
   [--limit]
-    Limit the total number of orders to process. Set to PHP_INT_MAX by default.
+    Limit the total number of orders to process. Defaults to processing all matched orders (`PHP_INT_MAX`).
 
   [--perpage]
-    Limit the number of orders to process each time.
+    Limit the number of orders to process each time. (default: 100, max: 250).
 
   [--next]
     Next page link from Shopify.

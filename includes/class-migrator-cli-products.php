@@ -6,7 +6,8 @@ class Migrator_CLI_Products {
 	query GetShopifyProducts(
 		$first: Int!,
 		$after: String,
-		$query: String
+		$query: String,
+		$variantsFirst: Int = 250 # Add variable for variant count
 	) {
 		products(first: $first, after: $after, query: $query) {
 			edges {
@@ -49,7 +50,7 @@ class Migrator_CLI_Products {
 							}
 						}
 					}
-					variants(first: 100) {
+					variants(first: $variantsFirst) {
 						edges {
 							node {
 								id
@@ -160,6 +161,7 @@ class Migrator_CLI_Products {
 					'limit' => $batch_limit,
 					'after_cursor' => $after_cursor,
 					'query_filter' => $args->query_filter,
+					'variants_per_product' => $args->variants_per_product,
 				)
 			);
 			$response_data = $this->fetch_product_batch( $fetch_args, $total_count );
@@ -226,12 +228,22 @@ class Migrator_CLI_Products {
 		// Parse other arguments.
 		$args = new stdClass();
 		$args->limit              = isset( $assoc_args['limit'] ) ? (int) $assoc_args['limit'] : PHP_INT_MAX;
-		$args->perpage            = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 100 ) : 100;
+		$args->perpage            = isset( $assoc_args['perpage'] ) ? min( (int) $assoc_args['perpage'], 250 ) : 100;
 		$args->skip_update        = isset( $assoc_args['skip-update'] );
 		$args->exclude_ids        = isset( $assoc_args['exclude'] ) ? explode( ',', $assoc_args['exclude'] ) : array();
 		$args->after_cursor    	  = isset( $assoc_args['next'] ) ? $assoc_args['next'] : null;
 		$args->target_product_ids = isset( $assoc_args['ids'] ) ? explode( ',', $assoc_args['ids'] ) : null;
 		$this->verbose            = isset( $assoc_args['verbose'] );
+
+		// Parse variants per product option
+		$variants_per_product_default = 250;
+		$args->variants_per_product = isset( $assoc_args['variants-per-product'] ) ? (int) $assoc_args['variants-per-product'] : $variants_per_product_default;
+		if ( $args->variants_per_product < 1 || $args->variants_per_product > 2000 ) {
+			WP_CLI::warning( 'Invalid value for --variants-per-product. Must be between 1 and 2000. Using default: ' . $variants_per_product_default );
+			$args->variants_per_product = $variants_per_product_default;
+		} elseif ( $args->variants_per_product !== $variants_per_product_default ) {
+			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Fetching ' . $args->variants_per_product . ' variants per product.' );
+		}
 
 		// Build GraphQL query filter string.
 		$query_parts = array();
@@ -275,6 +287,7 @@ class Migrator_CLI_Products {
 			'first' => $fetch_args->limit,
 			'after' => $fetch_args->after_cursor,
 			'query' => $fetch_args->query_filter,
+			'variantsFirst' => $fetch_args->variants_per_product,
 		);
 
 		$response_data = Migrator_CLI_Utils::graphql_request( self::SHOPIFY_PRODUCT_QUERY, $variables );
