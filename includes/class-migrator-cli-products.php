@@ -62,8 +62,12 @@ class Migrator_CLI_Products {
 								position
 								inventoryItem {
 									tracked
-									weight
-									weightUnit
+									measurement {
+										weight {
+											value
+											unit
+										}
+									}
 								}
 								media(first: 1) {
 									edges {
@@ -635,9 +639,16 @@ class Migrator_CLI_Products {
 				$product->set_stock_quantity( $stock_quantity );
 			}
 			if ( $this->should_process( 'weight' ) ) {
-				// Get weight and unit from inventoryItem
-				$weight = property_exists( $variant_node, 'inventoryItem' ) ? $variant_node->inventoryItem->weight : null;
-				$weight_unit = property_exists( $variant_node, 'inventoryItem' ) ? $variant_node->inventoryItem->weightUnit : null;
+				// Get weight and unit from inventoryItem -> measurement -> weight object
+				$weight_data = null;
+				if ( property_exists( $variant_node, 'inventoryItem' ) && is_object( $variant_node->inventoryItem ) &&
+					 property_exists( $variant_node->inventoryItem, 'measurement' ) && is_object( $variant_node->inventoryItem->measurement ) &&
+					 property_exists( $variant_node->inventoryItem->measurement, 'weight' ) && is_object( $variant_node->inventoryItem->measurement->weight )
+				) {
+					$weight_data = $variant_node->inventoryItem->measurement->weight;
+				}
+				$weight = $weight_data ? $weight_data->value : null;
+				$weight_unit = $weight_data ? $weight_data->unit : null;
 				$product->set_weight( $this->get_converted_weight( $weight, $weight_unit ) );
 			}
 			$variant_id = basename( $variant_node->id );
@@ -1215,9 +1226,16 @@ class Migrator_CLI_Products {
 			}
 
 			if ( $this->should_process( 'weight' ) ) {
-				// Get weight and unit from inventoryItem
-				$weight = property_exists( $variant_node, 'inventoryItem' ) ? $variant_node->inventoryItem->weight : null;
-				$weight_unit = property_exists( $variant_node, 'inventoryItem' ) ? $variant_node->inventoryItem->weightUnit : null;
+				// Get weight and unit from inventoryItem -> measurement -> weight object
+				$weight_data = null;
+				if ( property_exists( $variant_node, 'inventoryItem' ) && is_object( $variant_node->inventoryItem ) &&
+					 property_exists( $variant_node->inventoryItem, 'measurement' ) && is_object( $variant_node->inventoryItem->measurement ) &&
+					 property_exists( $variant_node->inventoryItem->measurement, 'weight' ) && is_object( $variant_node->inventoryItem->measurement->weight )
+				) {
+					$weight_data = $variant_node->inventoryItem->measurement->weight;
+				}
+				$weight = $weight_data ? $weight_data->value : null;
+				$weight_unit = $weight_data ? $weight_data->unit : null;
 				$variation->set_weight( $this->get_converted_weight( $weight, $weight_unit ) );
 			}
 
