@@ -62,7 +62,7 @@ Migrates products from a Shopify store to WooCommerce using the Shopify GraphQL 
     Specify a comma-separated list of fields (e.g., `description,tags`) to *exclude* from migration/update. All other standard fields will be processed.
 
   [--variants-per-product]
-    Number of variants to fetch per product (default: 250, max: 2000).
+    Number of variants to fetch per product (default: 100, max: 2000).
 
   [--remove-orphans]
     When updating a variable product, delete any existing WooCommerce variations that don't correspond to a variation in the current Shopify data for that product.

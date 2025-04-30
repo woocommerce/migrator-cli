@@ -7,7 +7,7 @@ class Migrator_CLI_Products {
 		$first: Int!,
 		$after: String,
 		$query: String,
-		$variantsFirst: Int = 250 # Add variable for variant count
+		$variantsFirst: Int = 100
 	) {
 		products(first: $first, after: $after, query: $query) {
 			edges {
@@ -236,7 +236,7 @@ class Migrator_CLI_Products {
 		$this->verbose            = isset( $assoc_args['verbose'] );
 
 		// Parse variants per product option
-		$variants_per_product_default = 250;
+		$variants_per_product_default = 100;
 		$args->variants_per_product = isset( $assoc_args['variants-per-product'] ) ? (int) $assoc_args['variants-per-product'] : $variants_per_product_default;
 		if ( $args->variants_per_product < 1 || $args->variants_per_product > 2000 ) {
 			WP_CLI::warning( 'Invalid value for --variants-per-product. Must be between 1 and 2000. Using default: ' . $variants_per_product_default );

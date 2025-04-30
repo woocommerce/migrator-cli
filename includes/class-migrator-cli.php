@@ -51,7 +51,7 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * : Limit the total number of products to process.
 	 *
 	 * [--perpage]
-	 * : Limit the number of orders to process each time. (default: 100, max: 250).
+	 * : Limit the number of products to process each time. (default: 100, max: 250).
 	 *
 	 * [--next]
 	 * : Next page link from Shopify.
@@ -81,7 +81,7 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * : Exclude selected fields from update.
 	 *
 	 * [--variants-per-product]
-	 * : Number of variants to fetch per product (default: 250, max: 2000).
+	 * : Number of variants to fetch per product (default: 100, max: 2000).
 	 *
 	 * [--remove-orphans]
 	 * : Remove orphans order items
