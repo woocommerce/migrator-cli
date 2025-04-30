@@ -57,12 +57,14 @@ class Migrator_CLI_Products {
 								price
 								compareAtPrice
 								sku
-								inventoryManagement
 								inventoryPolicy
 								inventoryQuantity
-								weight
-								weightUnit
 								position
+								inventoryItem {
+									tracked
+									weight
+									weightUnit
+								}
 								media(first: 1) {
 									edges {
 										node {
@@ -618,12 +620,25 @@ class Migrator_CLI_Products {
 				remove_filter( 'wc_product_has_unique_sku', '__return_false' );
 			}
 			if ( $this->should_process( 'stock' ) ) {
-				$product->set_manage_stock( 'SHOPIFY' === $variant_node->inventoryManagement );
-				$product->set_stock_status( $variant_node->inventoryQuantity <= 0 && 'DENY' === $variant_node->inventoryPolicy ? 'outofstock' : 'instock' );
-				$product->set_stock_quantity( $variant_node->inventoryQuantity );
+				// Use inventoryItem->tracked to determine if stock is managed
+				$manage_stock = property_exists( $variant_node, 'inventoryItem' ) && $variant_node->inventoryItem->tracked;
+				$product->set_manage_stock( $manage_stock );
+
+				// Set stock status based on quantity and inventory policy (if tracked)
+				$stock_quantity = $variant_node->inventoryQuantity ?? 0;
+				$allow_oversell = $manage_stock && 'CONTINUE' === $variant_node->inventoryPolicy;
+				if ( $stock_quantity > 0 || $allow_oversell ) {
+					$product->set_stock_status( 'instock' );
+				} else {
+					$product->set_stock_status( 'outofstock' );
+				}
+				$product->set_stock_quantity( $stock_quantity );
 			}
 			if ( $this->should_process( 'weight' ) ) {
-				$product->set_weight( $this->get_converted_weight( $variant_node->weight, $variant_node->weightUnit ) );
+				// Get weight and unit from inventoryItem
+				$weight = property_exists( $variant_node, 'inventoryItem' ) ? $variant_node->inventoryItem->weight : null;
+				$weight_unit = property_exists( $variant_node, 'inventoryItem' ) ? $variant_node->inventoryItem->weightUnit : null;
+				$product->set_weight( $this->get_converted_weight( $weight, $weight_unit ) );
 			}
 			$variant_id = basename( $variant_node->id );
 			$product->update_meta_data( '_original_variant_id', $variant_id );
@@ -1184,13 +1199,26 @@ class Migrator_CLI_Products {
 			$variation->set_status( 'publish' );
 
 			if ( $this->should_process( 'stock' ) ) {
-				$variation->set_manage_stock( 'SHOPIFY' === $variant_node->inventoryManagement );
-				$variation->set_stock_quantity( $variant_node->inventoryQuantity );
-				$variation->set_stock_status( $variant_node->inventoryQuantity <= 0 && 'DENY' === $variant_node->inventoryPolicy ? 'outofstock' : 'instock' );
+				// Use inventoryItem->tracked to determine if stock is managed
+				$manage_stock = property_exists( $variant_node, 'inventoryItem' ) && $variant_node->inventoryItem->tracked;
+				$variation->set_manage_stock( $manage_stock );
+
+				// Set stock status based on quantity and inventory policy (if tracked)
+				$stock_quantity = $variant_node->inventoryQuantity ?? 0;
+				$allow_oversell = $manage_stock && 'CONTINUE' === $variant_node->inventoryPolicy;
+				if ( $stock_quantity > 0 || $allow_oversell ) {
+					$variation->set_stock_status( 'instock' );
+				} else {
+					$variation->set_stock_status( 'outofstock' );
+				}
+				$variation->set_stock_quantity( $stock_quantity );
 			}
 
 			if ( $this->should_process( 'weight' ) ) {
-				$variation->set_weight( $this->get_converted_weight( $variant_node->weight, $variant_node->weightUnit ) );
+				// Get weight and unit from inventoryItem
+				$weight = property_exists( $variant_node, 'inventoryItem' ) ? $variant_node->inventoryItem->weight : null;
+				$weight_unit = property_exists( $variant_node, 'inventoryItem' ) ? $variant_node->inventoryItem->weightUnit : null;
+				$variation->set_weight( $this->get_converted_weight( $weight, $weight_unit ) );
 			}
 
 			if ( $this->should_process( 'images' ) && ! empty( $variant_node->media->edges ) ) {
