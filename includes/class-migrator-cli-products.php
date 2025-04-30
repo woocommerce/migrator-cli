@@ -1335,13 +1335,6 @@ class Migrator_CLI_Products {
 
 		$product->update_meta_data( '_migration_data', $this->migration_data );
 		$product->save();
-
-		wp_cache_flush();
-
-		$this->clean_up_orphan_variations( $product, $processed_variation_ids );
-
-		WC_Product_Variable_Data_Store_CPT::sync_variation_prices( $product->get_id() );
-		wc_product_sync_stock_status( $product->get_id() );
 	}
 
 	/**
