@@ -7,6 +7,9 @@ class Migrator_CLI extends WP_CLI_Command {
 	 *
 	 * ## OPTIONS
 	 *
+	 * [--platform=<platform>]
+	 * : Specify the source platform (e.g., shopify). Defaults to 'shopify'.
+	 *
 	 * [--before]
 	 * : Query Order before this date. ISO 8601 format.
 	 *

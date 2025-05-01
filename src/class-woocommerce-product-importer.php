@@ -5,7 +5,7 @@
  * Responsible for taking standardized data (prepared by a Platform Mapper)
  * and creating/updating WooCommerce objects (products, orders, etc.).
  */
-class WooCommerce_Importer {
+class WooCommerce_Product_Importer {
 
 	private $migration_data; // Will store mappings (images, variations) internally
 	private $processed_items; // Counter or log for summary

@@ -22,7 +22,7 @@ class Shopify_Mapper implements Platform_Mapper_Interface {
 	 * Maps raw Shopify product data (GraphQL node) to a standardized array format.
 	 *
 	 * @param object $shopify_product The raw Shopify product node from GraphQL.
-	 * @return array Standardized data array for WooCommerce_Importer.
+	 * @return array Standardized data array for WooCommerce_Product_Importer.
 	 */
 	public function map_product_data( object $shopify_product ): array {
 		$wc_data = [];

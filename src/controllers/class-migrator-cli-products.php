@@ -5,7 +5,7 @@ require_once __DIR__ . '/../interfaces/interface-platform-fetcher.php';
 require_once __DIR__ . '/../interfaces/interface-platform-mapper.php';
 require_once __DIR__ . '/../fetchers/class-shopify-fetcher.php';
 require_once __DIR__ . '/../mappers/class-shopify-mapper.php';
-require_once __DIR__ . '/../core/class-woocommerce-importer.php';
+require_once __DIR__ . '/../core/class-woocommerce-product-importer.php';
 
 class Migrator_CLI_Products {
 
@@ -64,7 +64,7 @@ class Migrator_CLI_Products {
 
 		$fetcher = new $fetcher_class();
 		$mapper = new $mapper_class( $mapper_args );
-		$importer = new WooCommerce_Importer( $importer_args );
+		$importer = new WooCommerce_Product_Importer( $importer_args );
 
 		// --- Fetch Total Count ---
 		$count_args = []; // Pass relevant filters from $args if needed by fetch_total_count
@@ -250,7 +250,7 @@ class Migrator_CLI_Products {
 	 * @param object $args           Parsed command arguments.
 	 * @param \WP_CLI\Utils\ProgressBar $progress Progress bar instance.
 	 * @param Platform_Mapper_Interface $mapper The instantiated Mapper.
-	 * @param WooCommerce_Importer $importer The instantiated Importer.
+	 * @param WooCommerce_Product_Importer $importer The instantiated Importer.
 	 * @return array Result containing processed count.
 	 */
 	private function process_product_batch( $platform_items, $args, $progress, $mapper, $importer ) {
