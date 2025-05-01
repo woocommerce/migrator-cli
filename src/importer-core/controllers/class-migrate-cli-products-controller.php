@@ -2,9 +2,9 @@
 
 require_once __DIR__ . '/../interfaces/interface-platform-fetcher.php';
 require_once __DIR__ . '/../interfaces/interface-platform-mapper.php';
-require_once __DIR__ . '/../platforms/shopify/class-shopify-fetcher.php';
-require_once __DIR__ . '/../platforms/shopify/class-shopify-mapper.php';
-require_once __DIR__ . '/../importer-core/importers/class-woocommerce-product-importer.php';
+require_once __DIR__ . '/../../platforms/shopify/class-shopify-fetcher.php';
+require_once __DIR__ . '/../../platforms/shopify/class-shopify-mapper.php';
+require_once __DIR__ . '/../importers/class-woocommerce-product-importer.php';
 
 class Migrate_CLI_Products {
 
