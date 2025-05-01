@@ -228,11 +228,11 @@ class Shopify_Fetcher implements Platform_Fetcher_Interface {
 	 * @return object|WP_Error Decoded JSON response object or WP_Error on failure.
 	 */
 	private function graphql_request( string $query, array $variables = [] ) {
-		if ( ! defined( 'SHOPIFY_SHOP_URL' ) || ! defined( 'SHOPIFY_ACCESS_TOKEN' ) ) {
-			return new WP_Error( 'api_error', 'Shopify API credentials (SHOPIFY_SHOP_URL, SHOPIFY_ACCESS_TOKEN) are not defined.' );
+		if ( ! defined( 'SHOPIFY_DOMAIN' ) || ! defined( 'ACCESS_TOKEN' ) ) {
+			return new WP_Error( 'api_error', 'Shopify API credentials (SHOPIFY_DOMAIN, ACCESS_TOKEN) are not defined.' );
 		}
 
-		$shop_url = untrailingslashit( SHOPIFY_SHOP_URL );
+		$shop_url = untrailingslashit( SHOPIFY_DOMAIN );
 		// Use the latest stable API version or make it configurable
 		$api_version = '2024-07'; // TODO: Consider making this dynamic or a constant
 		$graphql_endpoint = "{$shop_url}/admin/api/{$api_version}/graphql.json";
@@ -241,7 +241,7 @@ class Shopify_Fetcher implements Platform_Fetcher_Interface {
 			'method'  => 'POST',
 			'headers' => array(
 				'Content-Type'           => 'application/json',
-				'X-Shopify-Access-Token' => SHOPIFY_ACCESS_TOKEN,
+				'X-Shopify-Access-Token' => ACCESS_TOKEN,
 			),
 			'body'    => wp_json_encode( compact( 'query', 'variables' ) ),
 			'timeout' => 60, // Increase timeout for potentially large queries
@@ -289,11 +289,11 @@ class Shopify_Fetcher implements Platform_Fetcher_Interface {
 	 * @return object|WP_Error Decoded JSON response object or WP_Error on failure.
 	 */
 	private function rest_request( string $path, array $query_params = [], string $method = 'GET', array $body = [] ) {
-		if ( ! defined( 'SHOPIFY_SHOP_URL' ) || ! defined( 'SHOPIFY_ACCESS_TOKEN' ) ) {
-			return new WP_Error( 'api_error', 'Shopify API credentials (SHOPIFY_SHOP_URL, SHOPIFY_ACCESS_TOKEN) are not defined.' );
+		if ( ! defined( 'SHOPIFY_DOMAIN' ) || ! defined( 'ACCESS_TOKEN' ) ) {
+			return new WP_Error( 'api_error', 'Shopify API credentials (SHOPIFY_DOMAIN	, ACCESS_TOKEN) are not defined.' );
 		}
 
-		$shop_url = untrailingslashit( SHOPIFY_SHOP_URL );
+		$shop_url = untrailingslashit( SHOPIFY_DOMAIN );
 		// Use the latest stable API version or make it configurable
 		$api_version = '2024-07'; // TODO: Consider making this dynamic or a constant
 		$rest_endpoint = "{$shop_url}/admin/api/{$api_version}{$path}";
@@ -306,7 +306,7 @@ class Shopify_Fetcher implements Platform_Fetcher_Interface {
 			'method'  => $method,
 			'headers' => array(
 				'Content-Type'           => 'application/json', // Assume JSON for most REST interactions
-				'X-Shopify-Access-Token' => SHOPIFY_ACCESS_TOKEN,
+				'X-Shopify-Access-Token' => ACCESS_TOKEN,
 			),
 			'timeout' => 60,
 		);
