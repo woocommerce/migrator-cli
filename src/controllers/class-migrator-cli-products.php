@@ -5,7 +5,7 @@ require_once __DIR__ . '/../interfaces/interface-platform-fetcher.php';
 require_once __DIR__ . '/../interfaces/interface-platform-mapper.php';
 require_once __DIR__ . '/../fetchers/class-shopify-fetcher.php';
 require_once __DIR__ . '/../mappers/class-shopify-mapper.php';
-require_once __DIR__ . '/../core/class-woocommerce-product-importer.php';
+require_once __DIR__ . '/../class-woocommerce-product-importer.php';
 
 class Migrator_CLI_Products {
 
