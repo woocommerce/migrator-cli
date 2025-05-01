@@ -545,8 +545,8 @@ class WooCommerce_Importer {
 		// $this->clean_up_orphan_variations( $product, $processed_variation_ids ); // TODO: Implement if needed
 
 		// 8. Sync parent prices/stock status
-		WC_Product_Variable_Data_Store_CPT::sync_variation_prices( $parent_product_id );
-		wc_product_sync_stock_status( $parent_product_id );
+		// WC_Product_Variable_Data_Store_CPT::sync_variation_prices( $parent_product_id );
+		// wc_product_sync_stock_status( $parent_product_id );
 	}
 
 	/**
