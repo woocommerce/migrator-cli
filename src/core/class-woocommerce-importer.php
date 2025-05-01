@@ -308,16 +308,18 @@ class WooCommerce_Importer {
 					}
 				}
 
+				$start_time = microtime(true);
 				$attachment_id = media_sideload_image( $image_url, $product_id, $image_desc, 'id' );
+				$duration = microtime(true) - $start_time;
 
 				if ( is_wp_error( $attachment_id ) ) {
-					WP_CLI::warning( sprintf( ' - Error uploading %s: %s', $image_url, $attachment_id->get_error_message() ) );
+					WP_CLI::warning( sprintf( ' - Error uploading %s: %s (Duration: %.2fs)', $image_url, $attachment_id->get_error_message(), $duration ) );
 					continue;
 				}
 
 				// Map original ID to WP attachment ID
 				$this->migration_data['images_mapping'][ $original_id ] = $attachment_id;
-				if ( $this->verbose ) WP_CLI::line( sprintf( ' - Mapped image %s to attachment ID %s.', $original_id, $attachment_id ) );
+				if ( $this->verbose ) WP_CLI::line( sprintf( ' - Mapped image %s to attachment ID %s. (Upload duration: %.2fs)', $original_id, $attachment_id, $duration ) );
 
 				// Set alt text if provided
 				if ( $image_alt ) {
