@@ -232,9 +232,15 @@ class Shopify_Fetcher implements Platform_Fetcher_Interface {
 			return new WP_Error( 'api_error', 'Shopify API credentials (SHOPIFY_DOMAIN, ACCESS_TOKEN) are not defined.' );
 		}
 
-		$shop_url = untrailingslashit( SHOPIFY_DOMAIN );
+		// Ensure the domain has the protocol
+		$domain = SHOPIFY_DOMAIN;
+		if ( ! preg_match( '~^https?://~i', $domain ) ) {
+			$domain = 'https://' . $domain;
+		}
+
+		$shop_url = untrailingslashit( $domain );
 		// Use the latest stable API version or make it configurable
-		$api_version = '2024-07'; // TODO: Consider making this dynamic or a constant
+		$api_version = '2025-04'; // TODO: Consider making this dynamic or a constant
 		$graphql_endpoint = "{$shop_url}/admin/api/{$api_version}/graphql.json";
 
 		$request_args = array(
@@ -293,9 +299,15 @@ class Shopify_Fetcher implements Platform_Fetcher_Interface {
 			return new WP_Error( 'api_error', 'Shopify API credentials (SHOPIFY_DOMAIN	, ACCESS_TOKEN) are not defined.' );
 		}
 
-		$shop_url = untrailingslashit( SHOPIFY_DOMAIN );
+		// Ensure the domain has the protocol
+		$domain = SHOPIFY_DOMAIN;
+		if ( ! preg_match( '~^https?://~i', $domain ) ) {
+			$domain = 'https://' . $domain;
+		}
+
+		$shop_url = untrailingslashit( $domain );
 		// Use the latest stable API version or make it configurable
-		$api_version = '2024-07'; // TODO: Consider making this dynamic or a constant
+		$api_version = '2025-04'; // TODO: Consider making this dynamic or a constant
 		$rest_endpoint = "{$shop_url}/admin/api/{$api_version}{$path}";
 
 		if ( ! empty( $query_params ) ) {
