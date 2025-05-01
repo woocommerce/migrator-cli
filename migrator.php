@@ -19,16 +19,9 @@ add_action(
 			require_once __DIR__ . '/config.php';
 		}
 
-		#require_once __DIR__ . '/includes/WooPayments/class-migrator-cli-woopayments-customers.php';
-
-		require_once __DIR__ . '/includes/class-migrator-cli.php';
-		require_once __DIR__ . '/includes/class-migrator-cli-coupons.php';
-		require_once __DIR__ . '/includes/class-migrator-cli-utils.php';
-		require_once __DIR__ . '/includes/class-migrator-cli-order-tags.php';
-		require_once __DIR__ . '/includes/class-migrator-cli-orders.php';
-		require_once __DIR__ . '/includes/class-migrator-cli-payment-methods.php';
-		require_once __DIR__ . '/includes/class-migrator-cli-products.php';
-		require_once __DIR__ . '/includes/class-migrator-cli-subscriptions.php';
+		require_once __DIR__ . '/src/class-migrator-cli.php';
+		require_once __DIR__ . '/src/class-migrator-cli-utils.php';
+		require_once __DIR__ . '/src/class-migrator-cli-products.php';
 
 		WP_CLI::add_command( 'migrator', 'Migrator_CLI' );
 	}
