@@ -426,7 +426,7 @@ class WooCommerce_Importer {
 		// Build mapping of attribute label -> taxonomy slug from parent
 		$attribute_taxonomy_map = [];
 		foreach ( $product->get_attributes() as $taxonomy => $attribute_obj ) {
-			if ( $attribute_obj->is_variation() ) {
+			if ( $attribute_obj->get_variation() ) {
 				$attribute_label = wc_attribute_label( $taxonomy, $product );
 				$attribute_taxonomy_map[ $attribute_label ] = $taxonomy;
 			}
