@@ -21,7 +21,7 @@ add_action(
 
 		require_once __DIR__ . '/src/class-migrator-cli.php';
 		require_once __DIR__ . '/src/class-migrator-cli-utils.php';
-		require_once __DIR__ . '/src/class-migrator-cli-products.php';
+		require_once __DIR__ . '/src/controllers/class-migrator-cli-products.php';
 
 		WP_CLI::add_command( 'migrator', 'Migrator_CLI' );
 	}
