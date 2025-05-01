@@ -1,6 +1,6 @@
 <?php
 
-class Migrator_CLI_Utils {
+class Migrate_CLI_Utils {
 
 	/**
 	 * Checks if Woocommerce is active and if the Shopify tokens are set.
@@ -19,46 +19,6 @@ class Migrator_CLI_Utils {
 		}
 	}
 
-	/**
-	 * Disable the sequential orders plugin to prevent problems.
-	 */
-	public static function disable_sequential_orders() {
-		if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'We need to disable WooCommerce Sequential Order Numbers plugin while migration to ensure the order number is set correctly. The plugin will be enabled again after migration finished.' );
-			WP_CLI::runcommand( 'plugin deactivate woocommerce-sequential-order-numbers' );
-		}
-	}
-
-	/**
-	 * Enables the sequential orders plugin back.
-	 */
-	public static function enable_sequential_orders() {
-		if ( is_plugin_active( 'woocommerce-sequential-order-numbers/woocommerce-sequential-order-numbers.php' ) ) {
-			WP_CLI::line( WP_CLI::colorize( '%BInfo:%n ' ) . 'Enabling WooCommerce Sequential Order Numbers plugin.' );
-			WP_CLI::runcommand( 'plugin activate woocommerce-sequential-order-numbers' );
-		}
-	}
-
-	/**
-	 * Gets the next rest page link.
-	 *
-	 * @param array $response
-	 * @return string
-	 */
-	public static function get_rest_next_link( $response ) {
-		$links = wp_remote_retrieve_header( $response, 'link' );
-
-		$next_link = '';
-
-		foreach ( explode( ',', $links ) as $link ) {
-			if ( strpos( $link, 'rel="next"' ) !== false ) {
-				$next_link = str_replace( array( '<', '>; rel="next"' ), '', $link );
-				break;
-			}
-		}
-
-		return $next_link;
-	}
 
 	/**
 	 * Sets the WP_IMPORTING flag to true to prevent

@@ -1,13 +1,12 @@
 <?php
 
-// Ensure interfaces and classes are loaded - Paths adjusted for new location
 require_once __DIR__ . '/../interfaces/interface-platform-fetcher.php';
 require_once __DIR__ . '/../interfaces/interface-platform-mapper.php';
-require_once __DIR__ . '/../fetchers/class-shopify-fetcher.php';
-require_once __DIR__ . '/../mappers/class-shopify-mapper.php';
-require_once __DIR__ . '/../class-woocommerce-product-importer.php';
+require_once __DIR__ . '/../platforms/shopify/class-shopify-fetcher.php';
+require_once __DIR__ . '/../platforms/shopify/class-shopify-mapper.php';
+require_once __DIR__ . '/../importer-core/class-woocommerce-product-importer.php';
 
-class Migrator_CLI_Products {
+class Migrate_CLI_Products {
 
 	private $fields;
 	private $assoc_args;
@@ -21,11 +20,11 @@ class Migrator_CLI_Products {
 	 * @param array $assoc_args Command-line arguments
 	 */
 	public function migrate_products( $assoc_args ) {
-		Migrator_CLI_Utils::health_check();
+		Migrate_CLI_Utils::health_check();
 
 		// --- Platform Registration ---
 		$available_platforms = apply_filters(
-			'migrator_cli_available_platforms',
+			'migrate_cli_available_platforms',
 			[
 				'shopify' => [
 					'fetcher' => 'Shopify_Fetcher',
@@ -74,6 +73,7 @@ class Migrator_CLI_Products {
 		if ( isset( $args->target_product_ids ) ) $count_args['ids'] = implode( ',', $args->target_product_ids ); // Pass IDs if set
 		
 		$total_count = $fetcher->fetch_total_count( $count_args );
+		WP_CLI::line( 'Total entities found: ' . $total_count );
 		if ( null === $total_count ) {
 			WP_CLI::warning( 'Could not retrieve total count. Progress bar may be inaccurate.' );
 			$total_count = 0; // Set to 0 for progress bar if unknown
@@ -139,7 +139,7 @@ class Migrator_CLI_Products {
 
 			// Clear cache if continuing
 			if ( $has_next_page && $limit_remaining > 0 ) {
-				Migrator_CLI_Utils::reset_in_memory_cache();
+				Migrate_CLI_Utils::reset_in_memory_cache();
 			}
 
 		} while ( $has_next_page && $limit_remaining > 0 );

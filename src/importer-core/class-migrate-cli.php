@@ -1,6 +1,6 @@
 <?php
 
-class Migrator_CLI extends WP_CLI_Command {
+class Migrate_CLI extends WP_CLI_Command {
 
 	/**
 	 * Migrate products from Shopify to WooCommerce.
@@ -62,14 +62,14 @@ class Migrator_CLI extends WP_CLI_Command {
 	 * : Disable WordPress hooks (like save_post) during migration for performance. Use with caution.
 	 *
 	 * Example:
-	 * wp migrator products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU_*"
+	 * wp migrate products --limit=100 --perpage=10 --status=active --product-type=single --exclude="CANAL_SKU_*"
 	 *
 	 * @when after_wp_load
 	 */
 	public function products( $args, $assoc_args ) {
-		Migrator_CLI_Utils::set_importing_const();
+		Migrate_CLI_Utils::set_importing_const();
 
-		$products = new Migrator_CLI_Products();
+		$products = new Migrate_CLI_Products();
 		$products->migrate_products( $assoc_args );
 	}
 }

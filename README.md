@@ -1,4 +1,4 @@
-# migrator-cli
+# migrate-to-woo-cli
 
 CLI commands to migrate product data from various platforms (initially Shopify) to WooCommerce.
 
@@ -6,35 +6,35 @@ CLI commands to migrate product data from various platforms (initially Shopify) 
 
 This plugin uses a modular architecture:
 
-*   **Controller** (`Migrator_CLI_Products`): Handles WP-CLI command registration, argument parsing, and orchestrates the migration flow.
-*   **Fetcher** (e.g., `Shopify_Fetcher`): Responsible for fetching data from the source platform API. Implements `Platform_Fetcher_Interface`.
-*   **Mapper** (e.g., `Shopify_Mapper`): Responsible for transforming platform-specific data into a standardized WooCommerce format. Implements `Platform_Mapper_Interface`.
-*   **Importer** (`WooCommerce_Importer`): Takes the standardized data and creates/updates WooCommerce products, variations, images, taxonomies, etc.
+*   **Controller** (`Migrate_CLI_Products_Controller` in `src/importer-core/controllers/`): Handles WP-CLI command registration, argument parsing, and orchestrates the migration flow.
+*   **Fetcher** (e.g., `Shopify_Fetcher` in `src/platforms/shopify/`): Responsible for fetching data from the source platform API. Implements `Platform_Fetcher_Interface` (found in `src/importer-core/interfaces/`).
+*   **Mapper** (e.g., `Shopify_Mapper` in `src/platforms/shopify/`): Responsible for transforming platform-specific data into a standardized WooCommerce format. Implements `Platform_Mapper_Interface` (found in `src/importer-core/interfaces/`).
+*   **Importer** (`WooCommerce_Product_Importer` in `src/importer-core/importers/`): Takes the standardized data and creates/updates WooCommerce products, variations, images, taxonomies, etc.
 
-This structure allows for adding support for new platforms (like Magento, BigCommerce) by creating new Fetcher and Mapper classes and registering them via the `migrator_cli_available_platforms` filter.
+This structure allows for adding support for new platforms (like Magento, BigCommerce) by creating new Fetcher and Mapper classes (typically within a new subdirectory under `src/platforms/`) and registering them via the `migrate_cli_available_platforms` filter.
 
 ## Getting Started
 
 1.  Clone the repo into `wp-content/plugins`.
-2.  Copy the `config-example.php` to `config.php`.
+2.  Copy the `src/platforms/shopify/config-example.php` to `src/platforms/shopify/config.php`.
 3.  Obtain the necessary API credentials for your source platform (e.g., Shopify Access token by [creating a custom app](https://help.shopify.com/en/manual/apps/app-types/custom-apps)). Ensure the required scopes for reading products are selected.
-4.  Update the relevant credential constants (e.g., `SHOPIFY_DOMAIN`, `ACCESS_TOKEN`) in `config.php`.
-5.  Activate the plugin via the WordPress admin or WP-CLI (`wp plugin activate migrator-cli`).
+4.  Update the relevant credential constants (e.g., `SHOPIFY_DOMAIN`, `ACCESS_TOKEN`) in `src/platforms/shopify/config.php`.
+5.  Activate the plugin via the WordPress admin or WP-CLI (`wp plugin activate migrate-to-woo`).
 
 ## Commands
 
-### `wp migrator products`
+### `wp wc migrate products`
 
 Migrates products from a source platform store to WooCommerce. This command handles product details, images, variations, categories, tags, and more, attempting to map source data to corresponding WooCommerce fields. Use the options below to control the migration scope and behavior.
 
 ```bash
-wp migrator products [--platform=<platform>] [--before=<date>] [--after=<date>] [--limit=<num>] [--perpage=<num>] [--next=<cursor>] [--status=<status>] [--ids=<ids>] [--exclude=<ids>] [--handle=<handle>] [--product-type=<type>] [--skip-update] [--fields=<fields>] [--exclude-fields=<fields>] [--variants-per-product=<num>] [--remove-orphans] [--verbose] [--disable-hooks]
+wp wc migrate products [--platform=<platform>] [--before=<date>] [--after=<date>] [--limit=<num>] [--perpage=<num>] [--next=<cursor>] [--status=<status>] [--ids=<ids>] [--exclude=<ids>] [--handle=<handle>] [--product-type=<type>] [--skip-update] [--fields=<fields>] [--exclude-fields=<fields>] [--variants-per-product=<num>] [--remove-orphans] [--verbose] [--disable-hooks]
 ```
 
 **OPTIONS**
 
 `--platform=<platform>`
-: Select the source platform to migrate from. Registered platforms can be added via the `migrator_cli_available_platforms` filter.
+: Select the source platform to migrate from. Registered platforms can be added via the `migrate_cli_available_platforms` filter.
 : Default: `shopify`
 
 `--before=<date>`
@@ -95,11 +95,11 @@ wp migrator products [--platform=<platform>] [--before=<date>] [--after=<date>] 
 
 ```bash
 # Migrate first 50 active products from Shopify, 10 per batch, verbose output
-wp migrator products --platform=shopify --limit=50 --perpage=10 --status=active --verbose
+wp wc migrate products --platform=shopify --limit=50 --perpage=10 --status=active --verbose
 
 # Migrate only specific Shopify products by ID
-wp migrator products --platform=shopify --ids=12345,67890
+wp wc migrate products --platform=shopify --ids=12345,67890
 
 # Migrate all products except specific IDs, excluding description and tags
-wp migrator products --platform=shopify --exclude=98765 --exclude-fields=description,tags
+wp wc migrate products --platform=shopify --exclude=98765 --exclude-fields=description,tags
 ```

@@ -3,6 +3,12 @@
 /**
  * Fetches product data from the Shopify API.
  */
+
+// Only include the config.php file if exists
+if ( file_exists( __DIR__ . '/config.php' ) ) {
+	require_once __DIR__ . '/config.php';
+}
+
 class Shopify_Fetcher implements Platform_Fetcher_Interface {
 
 	const SHOPIFY_PRODUCT_QUERY = <<<'GRAPHQL'

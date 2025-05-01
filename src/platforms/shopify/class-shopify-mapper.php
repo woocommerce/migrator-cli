@@ -237,8 +237,6 @@ class Shopify_Mapper implements Platform_Mapper_Interface {
 	}
 
 
-	// --- Private Helper Methods (Moved from Migrator_CLI_Products) ---
-
 	/**
 	 * Checks if a product is a variable product.
 	 *
@@ -427,7 +425,6 @@ class Shopify_Mapper implements Platform_Mapper_Interface {
 	 * @return array Default fields.
 	 */
 	private function get_default_product_fields(): array {
-		// Mirrored from original Migrator_CLI_Products::get_product_fields
 		return array(
 			'title',
 			'slug',
