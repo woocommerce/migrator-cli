@@ -100,7 +100,7 @@ class Migrator_CLI_Payment_Methods {
 				$token = new WC_Payment_Token_CC();
 			}
 
-			$token->set_gateway_id( \WCPay\Payment_Methods\CC_Payment_Gateway::GATEWAY_ID );
+			$token->set_gateway_id( WC_Payment_Gateway_WCPay::GATEWAY_ID );
 			$token->set_expiry_month( $stripe_payment_method['card']['exp_month'] );
 			$token->set_expiry_year( $stripe_payment_method['card']['exp_year'] );
 			$token->set_card_type( strtolower( $stripe_payment_method['card']['brand'] ) );
